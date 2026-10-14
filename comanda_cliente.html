@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comanda Digital do Cliente - SmartComanda</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4" x-data="clienteApp()" x-init="init()">
+
+    <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center">
+        <div class="flex justify-between items-center w-full pb-4 border-b border-slate-700">
+            <h3 class="text-lg font-bold text-white">Comanda Digital do Cliente</h3>
+            <i class="fa-solid fa-xmark text-lg text-slate-400"></i>
+        </div>
+
+        <div class="py-4 space-y-4 w-full">
+            <p class="text-xs text-slate-300">Sua conta foi encerrada com sucesso! Confira os detalhes e avalie sua experiência abaixo:</p>
+
+            <!-- Card de Detalhes -->
+            <div class="bg-slate-900/90 p-4 rounded-xl w-full border border-slate-700 text-left text-xs space-y-2 shadow-inner">
+                <p class="text-slate-300"><strong>Mesa:</strong> <span class="text-white font-bold" x-text="tableNumber"></span></p>
+                <p class="text-slate-300"><strong>Cliente:</strong> <span class="text-emerald-400 font-bold" x-text="clientName"></span></p>
+                <p class="text-slate-300"><strong>Tempo na Mesa:</strong> <span class="text-indigo-400 font-bold" x-text="satTime"></span></p>
+                <p class="text-slate-300"><strong>Total da Conta:</strong> <span class="text-emerald-400 font-bold text-sm" x-text="'R$ ' + parseFloat(total).toFixed(2)"></span></p>
+            </div>
+
+            <!-- Formulário de Avaliação -->
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-slate-300 text-xs space-y-4 w-full shadow-lg">
+                <p class="font-bold text-amber-400 text-center flex items-center justify-center space-x-1 text-sm">
+                    <i class="fa-solid fa-star"></i>
+                    <span>Avalie sua Experiência</span>
+                </p>
+                
+                <!-- Atendimento -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-semibold text-slate-200">Atendimento:</span>
+                        <span class="text-amber-400 font-bold" x-text="ratingService + ' / 5 Estrelas'"></span>
+                    </div>
+                    <div class="flex justify-center space-x-2">
+                        <template x-for="star in [1, 2, 3, 4, 5]" :key="'service-'+star">
+                            <button @click="ratingService = star" class="text-2xl focus:outline-none transition-transform hover:scale-125">
+                                <i class="fa-star" :class="star <= ratingService ? 'fa-solid text-amber-400' : 'fa-regular text-slate-600'"></i>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Qualidade do Alimento -->
+                <div class="space-y-1.5 pt-2 border-t border-slate-800/80">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-semibold text-slate-200">Qualidade do Alimento:</span>
+                        <span class="text-amber-400 font-bold" x-text="ratingFood + ' / 5 Estrelas'"></span>
+                    </div>
+                    <div class="flex justify-center space-x-2">
+                        <template x-for="star in [1, 2, 3, 4, 5]" :key="'food-'+star">
+                            <button @click="ratingFood = star" class="text-2xl focus:outline-none transition-transform hover:scale-125">
+                                <i class="fa-star" :class="star <= ratingFood ? 'fa-solid text-amber-400' : 'fa-regular text-slate-600'"></i>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Comentário -->
+                <div class="pt-2 border-t border-slate-800/80">
+                    <input type="text" x-model="comment" placeholder="Deixe seu comentário ou sugestão..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+                </div>
+            </div>
+
+            <div class="bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 text-emerald-300 text-xs text-center">
+                <p class="italic">"Ficamos muito felizes em ter você conosco! Volte sempre."</p>
+            </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-700 w-full" x-show="!enviado">
+            <button @click="enviarAvaliacao()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl text-xs font-bold shadow-lg transition-all flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>Enviar Avaliação</span>
+            </button>
+        </div>
+
+        <div x-show="enviado" class="p-3 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs rounded-xl w-full font-bold">
+            <i class="fa-solid fa-circle-check mr-1"></i> Avaliação enviada com sucesso! Obrigado.
+        </div>
+    </div>
+
+    <script>
+        function clienteApp() {
+            return {
+                tableNumber: '1',
+                clientName: 'Cliente',
+                satTime: '00:00',
+                total: '0.00',
+                ratingService: 5,
+                ratingFood: 5,
+                comment: '',
+                enviado: false,
+
+                init() {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    this.tableNumber = urlParams.get('mesa') || '1';
+                    this.clientName = urlParams.get('cliente') || 'Geral';
+                    this.satTime = urlParams.get('tempo') || '00:00';
+                    this.total = urlParams.get('total') || '0.00';
+                },
+
+                
+                async enviarAvaliacao() {
+                    const feedback = {
+                        id: Date.now(),
+                        table: this.tableNumber,
+                        client: this.clientName,
+                        service: this.ratingService,
+                        food: this.ratingFood,
+                        comment: this.comment || 'Sem comentários',
+                        time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                    };
+
+                    // Enviar para o Firebase Realtime Database
+                    try {
+                        await fetch('https://smartcomanda-df58e-default-rtdb.firebaseio.com/feedbacks.json', {
+                            method: 'POST',
+                            body: JSON.stringify(feedback),
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                    } catch(err) {
+                        console.log('Erro ao enviar para o Firebase:', err);
+                    }
+
+                    // Fallback local
+                    let feedbacks = [];
+                    try {
+                        const saved = localStorage.getItem('smartcomanda_feedbacks_v8');
+                        if (saved) feedbacks = JSON.parse(saved);
+                    } catch(e){}
+                    feedbacks.unshift(feedback);
+                    try {
+                        localStorage.setItem('smartcomanda_feedbacks_v8', JSON.stringify(feedbacks));
+                    } catch(e){}
+
+                    this.enviado = true;
+                }
+;
+
+                    // Tentar salvar no localStorage compartilhado caso esteja no mesmo domínio
+                    let feedbacks = [];
+                    try {
+                        const saved = localStorage.getItem('smartcomanda_feedbacks_v8');
+                        if (saved) feedbacks = JSON.parse(saved);
+                    } catch(e){}
+                    feedbacks.unshift(feedback);
+                    try {
+                        localStorage.setItem('smartcomanda_feedbacks_v8', JSON.stringify(feedbacks));
+                    } catch(e){}
+
+                    this.enviado = true;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
