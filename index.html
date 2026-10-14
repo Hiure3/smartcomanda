@@ -1652,21 +1652,58 @@
                     return prod ? prod.prepTimeMinutes : 10;
                 },
 
+                
+                
                 playAudioAlert(type) {
                     try {
                         const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                        const osc = ctx.createOscillator();
-                        const gain = ctx.createGain();
-                        osc.connect(gain);
-                        gain.connect(ctx.destination);
-                        if(type === 'bell') {
-                            osc.frequency.setValueAtTime(659.25, ctx.currentTime);
-                            gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                            osc.start();
-                            osc.stop(ctx.currentTime + 0.3);
+                        const now = ctx.currentTime;
+
+                        if(type === 'add' || type === 'bell') {
+                            // Som estilo iPhone / Glass Chime Triplo Harmônico (Super agradável e cristalino)
+                            const notes = [
+                                { freq: 987.77, delay: 0.0, duration: 0.25 }, // B5
+                                { freq: 1318.51, delay: 0.08, duration: 0.40 } // E6
+                            ];
+
+                            notes.forEach(note => {
+                                const osc = ctx.createOscillator();
+                                const gain = ctx.createGain();
+                                osc.type = 'sine';
+                                osc.frequency.setValueAtTime(note.freq, now + note.delay);
+
+                                // Curva de volume rápida com decaimento suave (estilo marimba/chime)
+                                gain.gain.setValueAtTime(0.001, now + note.delay);
+                                gain.gain.linearRampToValueAtTime(0.12, now + note.delay + 0.015);
+                                gain.gain.exponentialRampToValueAtTime(0.0001, now + note.delay + note.duration);
+
+                                osc.connect(gain);
+                                gain.connect(ctx.destination);
+                                osc.start(now + note.delay);
+                                osc.stop(now + note.delay + note.duration);
+                            });
+                        } else if(type === 'remove') {
+                            // Som de remoção: Gota de água / tom descendente macio
+                            const osc = ctx.createOscillator();
+                            const gain = ctx.createGain();
+                            osc.type = 'sine';
+                            
+                            osc.frequency.setValueAtTime(587.33, now); // D5
+                            osc.frequency.exponentialRampToValueAtTime(392.00, now + 0.2); // G4
+
+                            gain.gain.setValueAtTime(0.001, now);
+                            gain.gain.linearRampToValueAtTime(0.1, now + 0.02);
+                            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+
+                            osc.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc.start(now);
+                            osc.stop(now + 0.2);
                         }
                     } catch(e) {}
                 },
+
+
 
                 formatTime(sec) {
                     const m = Math.floor(sec / 60);
@@ -1773,12 +1810,15 @@
                             elapsedSeconds: 0,
                             items: [{ id: Date.now(), qty: 1, name: product.name, status: 'Pendente' }]
                         });
-                        this.playAudioAlert('bell');
                     }
+
+                    // Toca o som uma única vez por adição de item
+                    this.playAudioAlert('add');
                     this.saveStorage();
                 },
 
                 removeItemFromTable(table, item) {
+                    this.playAudioAlert('remove');
                     if(!confirm(`Deseja remover ${item.name} da Mesa ${table.number}?`)) return;
                     table.items = table.items.filter(i => i.id !== item.id);
                     this.recalcTableTotal(table);
@@ -1816,7 +1856,7 @@
                     const allDone = order.items.every(i => i.status === 'Pronto');
                     if(allDone) {
                         order.status = 'Pronto';
-                        this.playAudioAlert('bell');
+                        this.playAudioAlert('add');
 
                         // Avaliar se foi entregue no tempo ou fora do tempo baseado no tempo máximo do item
                         const maxPrepTimeSec = Math.max(...order.items.map(i => this.getItemPrepTime(i.name) * 60));
@@ -1827,7 +1867,7 @@
                         }
                     } else {
                         order.status = 'Em Preparo';
-                        this.playAudioAlert('bell');
+                        this.playAudioAlert('add');
                     }
                     this.saveStorage();
                 },
@@ -1835,7 +1875,7 @@
                 completeAllOrderItems(order) {
                     order.items.forEach(i => i.status = 'Pronto');
                     order.status = 'Pronto';
-                    this.playAudioAlert('bell');
+                    this.playAudioAlert('add');
 
                     let t = this.tables.find(x => x.number === order.tableNumber);
                     if(t) {
@@ -1860,7 +1900,7 @@
                     }
                     if(status === 'Pronto') {
                         order.items.forEach(i => i.status = 'Pronto');
-                        this.playAudioAlert('bell');
+                        this.playAudioAlert('add');
                         let t = this.tables.find(x => x.number === order.tableNumber);
                         if(t) t.notificationRead = false;
 
