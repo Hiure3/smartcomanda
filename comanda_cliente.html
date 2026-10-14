@@ -8,23 +8,34 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
         body { font-family: 'Inter', sans-serif; }
+        @keyframes pulse-subtle {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+        }
+        .animate-pulse-subtle {
+            animation: pulse-subtle 2s infinite ease-in-out;
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4" x-data="clienteApp()" x-init="init()">
 
-    <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center">
+    <!-- CARD PRINCIPAL DE AVALIAÇÃO DO CLIENTE -->
+    <div x-show="!enviado" class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center space-y-4">
         <div class="flex justify-between items-center w-full pb-4 border-b border-slate-700">
-            <h3 class="text-lg font-bold text-white">Comanda Digital do Cliente</h3>
+            <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-receipt text-emerald-400"></i>
+                <span>Comanda Digital</span>
+            </h3>
             <span class="text-xs bg-emerald-500/20 text-emerald-400 font-bold px-2.5 py-1 rounded-full border border-emerald-500/30">Mesa <span x-text="tableNumber"></span></span>
         </div>
 
-        <div class="py-4 space-y-4 w-full">
-            <p class="text-xs text-slate-300">Sua conta foi encerrada com sucesso! Confira os detalhes e avalie sua experiência abaixo:</p>
+        <div class="space-y-4 w-full text-left">
+            <p class="text-xs text-slate-300 text-center">Sua conta foi encerrada com sucesso! Confira os detalhes e avalie sua experiência abaixo:</p>
 
             <!-- Card de Detalhes -->
-            <div class="bg-slate-900/90 p-4 rounded-xl w-full border border-slate-700 text-left text-xs space-y-2 shadow-inner">
+            <div class="bg-slate-900/90 p-4 rounded-xl w-full border border-slate-700 text-xs space-y-2 shadow-inner">
                 <p class="text-slate-300"><strong>Mesa:</strong> <span class="text-white font-bold" x-text="tableNumber"></span></p>
                 <p class="text-slate-300"><strong>Cliente:</strong> <span class="text-emerald-400 font-bold" x-text="clientName"></span></p>
                 <p class="text-slate-300"><strong>Tempo na Mesa:</strong> <span class="text-indigo-400 font-bold" x-text="satTime"></span></p>
@@ -34,7 +45,7 @@
             <!-- Formulário de Avaliação -->
             <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-slate-300 text-xs space-y-4 w-full shadow-lg">
                 <p class="font-bold text-amber-400 text-center flex items-center justify-center space-x-1 text-sm">
-                    <span>★</span>
+                    <i class="fa-solid fa-star text-amber-400 mr-1"></i>
                     <span>Avalie sua Experiência</span>
                 </p>
                 
@@ -79,16 +90,46 @@
             </div>
         </div>
 
-        <div class="pt-3 border-t border-slate-700 w-full" x-show="!enviado">
-            <button @click="enviarAvaliacao()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl text-xs font-bold shadow-lg transition-all flex items-center justify-center space-x-2">
+        <div class="pt-3 border-t border-slate-700 w-full">
+            <button @click="enviarAvaliacao()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-xl text-xs font-bold shadow-lg transition-all flex items-center justify-center space-x-2">
                 <i class="fa-solid fa-paper-plane"></i>
                 <span>Enviar Avaliação</span>
             </button>
         </div>
+    </div>
 
-        <div x-show="enviado" class="p-3 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs rounded-xl w-full font-bold">
-            <i class="fa-solid fa-circle-check mr-1"></i> Avaliação enviada com sucesso! Obrigado.
+
+    <!-- TELA DE AGRADECIMENTO & INSTAGRAM APÓS AVALIAR -->
+    <div x-show="enviado" class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-8 shadow-2xl flex flex-col items-center text-center space-y-6">
+        <div class="w-20 h-20 bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 rounded-full flex items-center justify-center text-white text-4xl shadow-xl shadow-rose-500/20 animate-pulse-subtle">
+            <i class="fa-brands fa-instagram"></i>
         </div>
+
+        <div class="space-y-2">
+            <div class="inline-flex items-center space-x-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full text-xs font-bold">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Avaliação Registrada!</span>
+            </div>
+            <h2 class="text-2xl font-extrabold text-white pt-2">Muito Obrigado! ❤️</h2>
+            <p class="text-xs text-slate-300 leading-relaxed">
+                Agradecemos imensamente pela sua preferência e por avaliar nosso atendimento. Sua opinião é fundamental para melhorarmos sempre!
+            </p>
+        </div>
+
+        <!-- Card de Destaque do Instagram -->
+        <div class="bg-slate-900/90 border border-slate-700 p-5 rounded-2xl w-full space-y-3 shadow-inner">
+            <p class="text-xs font-semibold text-slate-300">Siga nossas novidades e promoções no Instagram:</p>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-center space-x-2 text-rose-400 font-extrabold text-sm tracking-wide">
+                <i class="fa-brands fa-instagram text-base"></i>
+                <span>@compreagoranovidades</span>
+            </div>
+            <a href="https://www.instagram.com/compreagoranovidades/" target="_blank" rel="noopener noreferrer" class="w-full bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:opacity-90 text-white font-bold py-3.5 px-4 rounded-xl text-xs shadow-lg transition-all flex items-center justify-center space-x-2">
+                <span>Ver Perfil no Instagram</span>
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+            </a>
+        </div>
+
+        <p class="text-[11px] text-slate-500">SmartComanda • Esperamos você em breve!</p>
     </div>
 
     <script>
