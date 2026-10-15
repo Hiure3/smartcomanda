@@ -3,20 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comanda Digital do Cliente - SmartComanda</title>
+    <title>Comanda Digital - Avaliação do Cliente</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
-        @keyframes pulse-subtle {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.03); }
-        }
-        .animate-pulse-subtle {
-            animation: pulse-subtle 2s infinite ease-in-out;
-        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4" x-data="clienteApp()" x-init="init()">
@@ -31,108 +24,99 @@
             <span class="text-xs bg-emerald-500/20 text-emerald-400 font-bold px-2.5 py-1 rounded-full border border-emerald-500/30">Mesa <span x-text="tableNumber"></span></span>
         </div>
 
-        <div class="space-y-4 w-full text-left">
-            <p class="text-xs text-slate-300 text-center">Sua conta foi encerrada com sucesso! Confira os detalhes e avalie sua experiência abaixo:</p>
-
-            <!-- Card de Detalhes -->
-            <div class="bg-slate-900/90 p-4 rounded-xl w-full border border-slate-700 text-xs space-y-2 shadow-inner">
-                <p class="text-slate-300"><strong>Mesa:</strong> <span class="text-white font-bold" x-text="tableNumber"></span></p>
-                <p class="text-slate-300"><strong>Cliente:</strong> <span class="text-emerald-400 font-bold" x-text="clientName"></span></p>
-                <p class="text-slate-300"><strong>Tempo na Mesa:</strong> <span class="text-indigo-400 font-bold" x-text="satTime"></span></p>
-                <p class="text-slate-300"><strong>Total da Conta:</strong> <span class="text-emerald-400 font-bold text-sm" x-text="'R$ ' + parseFloat(total || 0).toFixed(2)"></span></p>
+        <div class="space-y-3 w-full text-left">
+            <p class="text-xs text-slate-300">Olá <strong class="text-emerald-400" x-text="clientName"></strong>, confira abaixo os detalhes do seu consumo:</p>
+            
+            <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-700/80 space-y-2">
+                <div class="flex justify-between text-xs">
+                    <span class="text-slate-400">Tempo na Mesa:</span>
+                    <span class="text-indigo-400 font-mono font-bold" x-text="satTime"></span>
+                </div>
+                <div class="flex justify-between text-sm pt-1 border-t border-slate-800">
+                    <span class="font-bold text-white">Total Consumido:</span>
+                    <span class="text-emerald-400 font-extrabold" x-text="'R$ ' + parseFloat(total).toFixed(2)"></span>
+                </div>
             </div>
 
-            <!-- Frase de Boas-Vindas Acima da Avaliação -->
-            <div class="bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 text-emerald-300 text-xs text-center w-full">
-                <p class="italic font-medium">"Ficamos muito felizes em ter você conosco! Volte sempre."</p>
-            </div>
-
-            <!-- Formulário de Avaliação -->
-            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-slate-300 text-xs space-y-4 w-full shadow-lg">
-                <p class="font-bold text-amber-400 text-center flex items-center justify-center space-x-1 text-sm">
-                    <i class="fa-solid fa-star text-amber-400 mr-1"></i>
-                    <span>Avalie sua Experiência</span>
+            <!-- EXIBIÇÃO DETALHADA DOS ITENS CONSUMIDOS NA COMANDA CLIENTE -->
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+                <p class="text-xs font-bold text-emerald-400 flex items-center space-x-1">
+                    <i class="fa-solid fa-utensils"></i>
+                    <span>Itens Consumidos na Sua Comanda:</span>
                 </p>
-                
-                <!-- Atendimento -->
-                <div class="space-y-1.5">
-                    <div class="flex justify-between items-center text-xs">
-                        <span class="font-semibold text-slate-200">Atendimento:</span>
-                        <span class="text-amber-400 font-bold" x-text="ratingService + ' / 5 Estrelas'"></span>
-                    </div>
-                    <div class="flex justify-center space-x-2">
-                        <template x-for="star in [1, 2, 3, 4, 5]" :key="'service-'+star">
-                            <button @click="ratingService = star" class="text-3xl focus:outline-none transition-transform hover:scale-125 px-1">
-                                <span :class="star <= ratingService ? 'text-amber-400 font-bold' : 'text-slate-600'" x-text="star <= ratingService ? '★' : '☆'"></span>
-                            </button>
+                <template x-if="consumedItems.length > 0">
+                    <div class="space-y-1.5 divide-y divide-slate-800/80">
+                        <template x-for="item in consumedItems" :key="item.id || item.name">
+                            <div class="pt-1.5 flex justify-between items-center text-xs">
+                                <span class="text-slate-200 font-medium" x-text="`${item.qty}x ${item.name}`"></span>
+                                <span class="text-emerald-400 font-bold" x-text="`R$ ${(item.qty * item.price).toFixed(2)}`"></span>
+                            </div>
                         </template>
                     </div>
-                </div>
+                </template>
+                <template x-if="consumedItems.length === 0">
+                    <p class="text-slate-400 text-xs italic">Nenhum item individual listado (Total: R$ <span x-text="parseFloat(total).toFixed(2)"></span>)</p>
+                </template>
+            </div>
+        </div>
 
-                <!-- Qualidade do Alimento -->
-                <div class="space-y-1.5 pt-2 border-t border-slate-800/80">
-                    <div class="flex justify-between items-center text-xs">
-                        <span class="font-semibold text-slate-200">Qualidade do Alimento:</span>
-                        <span class="text-amber-400 font-bold" x-text="ratingFood + ' / 5 Estrelas'"></span>
-                    </div>
-                    <div class="flex justify-center space-x-2">
-                        <template x-for="star in [1, 2, 3, 4, 5]" :key="'food-'+star">
-                            <button @click="ratingFood = star" class="text-3xl focus:outline-none transition-transform hover:scale-125 px-1">
-                                <span :class="star <= ratingFood ? 'text-amber-400 font-bold' : 'text-slate-600'" x-text="star <= ratingFood ? '★' : '☆'"></span>
-                            </button>
-                        </template>
-                    </div>
+        <!-- FORMULÁRIO DE AVALIAÇÃO DE ESTRELAS -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-slate-300 text-xs space-y-4 w-full">
+            <p class="font-bold text-amber-400 text-sm flex items-center justify-center space-x-1">
+                <i class="fa-solid fa-star"></i>
+                <span>Avalie sua Experiência</span>
+            </p>
+            
+            <!-- Atendimento -->
+            <div class="space-y-1 text-left">
+                <div class="flex justify-between items-center">
+                    <span class="font-semibold text-slate-200">Qualidade do Atendimento:</span>
+                    <span class="text-amber-400 font-bold" x-text="ratingService + ' / 5 Estrelas'"></span>
                 </div>
-
-                <!-- Comentário -->
-                <div class="pt-2 border-t border-slate-800/80">
-                    <input type="text" x-model="comment" placeholder="Deixe seu comentário ou sugestão..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+                <div class="flex justify-center space-x-2 py-1">
+                    <template x-for="star in [1, 2, 3, 4, 5]" :key="'srv-'+star">
+                        <button @click="ratingService = star" class="text-2xl focus:outline-none transition-transform hover:scale-125">
+                            <i class="fa-star" :class="star <= ratingService ? 'fa-solid text-amber-400' : 'fa-regular text-slate-600'"></i>
+                        </button>
+                    </template>
                 </div>
             </div>
 
+            <!-- Qualidade da Comida -->
+            <div class="space-y-1 text-left pt-2 border-t border-slate-800">
+                <div class="flex justify-between items-center">
+                    <span class="font-semibold text-slate-200">Qualidade dos Alimentos:</span>
+                    <span class="text-amber-400 font-bold" x-text="ratingFood + ' / 5 Estrelas'"></span>
+                </div>
+                <div class="flex justify-center space-x-2 py-1">
+                    <template x-for="star in [1, 2, 3, 4, 5]" :key="'food-'+star">
+                        <button @click="ratingFood = star" class="text-2xl focus:outline-none transition-transform hover:scale-125">
+                            <i class="fa-star" :class="star <= ratingFood ? 'fa-solid text-amber-400' : 'fa-regular text-slate-600'"></i>
+                        </button>
+                    </template>
+                </div>
+            </div>
 
+            <!-- Comentário -->
+            <div class="pt-2 border-t border-slate-800 text-left">
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Comentário ou Sugestão (Opcional):</label>
+                <textarea x-model="comment" rows="2" placeholder="Deixe sua mensagem para a gerência..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"></textarea>
+            </div>
         </div>
 
-        <div class="pt-3 border-t border-slate-700 w-full">
-            <button @click="enviarAvaliacao()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-xl text-xs font-bold shadow-lg transition-all flex items-center justify-center space-x-2">
-                <i class="fa-solid fa-paper-plane"></i>
-                <span>Enviar Avaliação</span>
-            </button>
-        </div>
+        <button @click="enviarAvaliacao()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-sm shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span>Enviar Avaliação</span>
+        </button>
     </div>
 
-
-    <!-- TELA DE AGRADECIMENTO & INSTAGRAM APÓS AVALIAR -->
-    <div x-show="enviado" class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-8 shadow-2xl flex flex-col items-center text-center space-y-6">
-        <div class="w-20 h-20 bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 rounded-full flex items-center justify-center text-white text-4xl shadow-xl shadow-rose-500/20 animate-pulse-subtle">
-            <i class="fa-brands fa-instagram"></i>
+    <!-- TELA DE AGRADECIMENTO -->
+    <div x-show="enviado" class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-8 shadow-2xl flex flex-col items-center text-center space-y-4 animate-bounce">
+        <div class="bg-emerald-500 text-slate-950 p-4 rounded-full text-3xl font-bold shadow-lg shadow-emerald-500/30">
+            <i class="fa-solid fa-check"></i>
         </div>
-
-        <div class="space-y-2">
-            <div class="inline-flex items-center space-x-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full text-xs font-bold">
-                <i class="fa-solid fa-circle-check"></i>
-                <span>Avaliação Registrada!</span>
-            </div>
-            <h2 class="text-2xl font-extrabold text-white pt-2">Muito Obrigado! ❤️</h2>
-            <p class="text-xs text-slate-300 leading-relaxed">
-                Agradecemos imensamente pela sua preferência e por avaliar nosso atendimento. Sua opinião é fundamental para melhorarmos sempre!
-            </p>
-        </div>
-
-        <!-- Card de Destaque do Instagram -->
-        <div class="bg-slate-900/90 border border-slate-700 p-5 rounded-2xl w-full space-y-3 shadow-inner">
-            <p class="text-xs font-semibold text-slate-300">Siga nossas novidades e promoções no Instagram:</p>
-            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-center space-x-2 text-rose-400 font-extrabold text-sm tracking-wide">
-                <i class="fa-brands fa-instagram text-base"></i>
-                <span>@compreagoranovidades</span>
-            </div>
-            <a href="https://www.instagram.com/compreagoranovidades/" target="_blank" rel="noopener noreferrer" class="w-full bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:opacity-90 text-white font-bold py-3.5 px-4 rounded-xl text-xs shadow-lg transition-all flex items-center justify-center space-x-2">
-                <span>Ver Perfil no Instagram</span>
-                <i class="fa-solid fa-arrow-up-right-from-square"></i>
-            </a>
-        </div>
-
-        <p class="text-[11px] text-slate-500">SmartComanda • Esperamos você em breve!</p>
+        <h3 class="text-xl font-bold text-white">Muito Obrigado!</h3>
+        <p class="text-xs text-slate-300">Sua avaliação foi enviada com sucesso em tempo real para nossa equipe. Volte sempre!</p>
     </div>
 
     <script>
@@ -145,6 +129,7 @@
                 ratingService: 5,
                 ratingFood: 5,
                 comment: '',
+                consumedItems: [],
                 enviado: false,
 
                 init() {
@@ -153,6 +138,17 @@
                     this.clientName = urlParams.get('cliente') || urlParams.get('Cliente') || 'Geral';
                     this.satTime = urlParams.get('tempo') || urlParams.get('Tempo') || '00:00';
                     this.total = urlParams.get('total') || urlParams.get('Total') || '0.00';
+                    
+                    const itemsRaw = urlParams.get('itens') || urlParams.get('items');
+                    if (itemsRaw) {
+                        try {
+                            this.consumedItems = JSON.parse(decodeURIComponent(itemsRaw));
+                        } catch(e) {
+                            try {
+                                this.consumedItems = JSON.parse(itemsRaw);
+                            } catch(err){}
+                        }
+                    }
                 },
 
                 async enviarAvaliacao() {
@@ -164,6 +160,7 @@
                         food: this.ratingFood,
                         comment: this.comment || 'Sem comentários',
                         total: this.total,
+                        items: this.consumedItems || [],
                         time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                     };
 
