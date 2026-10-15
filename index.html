@@ -812,9 +812,9 @@
                                     <span class="font-extrabold text-white text-base" x-text="fb.client"></span>
                                     <span class="text-slate-400 text-xs font-semibold" x-text="'• ' + fb.time"></span>
                                 </div>
-                                <div class="flex space-x-3">
+                                <div class="flex items-center space-x-3">
                                     <!-- Badge de Atendimento -->
-                                    <span class="font-bold text-sm flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border"
+                                    <span class="font-bold text-xs flex items-center space-x-1 px-2.5 py-1 rounded-lg border"
                                           :class="{
                                               'bg-red-500/10 text-red-400 border-red-500/30 animate-pulse': parseInt(fb.service) <= 1,
                                               'bg-amber-500/10 text-amber-400 border-amber-500/30': parseInt(fb.service) === 2,
@@ -825,7 +825,7 @@
                                     </span>
 
                                     <!-- Badge de Alimento -->
-                                    <span class="font-bold text-sm flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border"
+                                    <span class="font-bold text-xs flex items-center space-x-1 px-2.5 py-1 rounded-lg border"
                                           :class="{
                                               'bg-red-500/10 text-red-400 border-red-500/30 animate-pulse': parseInt(fb.food) <= 1,
                                               'bg-amber-500/10 text-amber-400 border-amber-500/30': parseInt(fb.food) === 2,
@@ -837,6 +837,15 @@
                                 </div>
                             </div>
                             <p class="text-slate-200 text-sm italic font-medium bg-slate-950 p-3 rounded-xl border border-slate-800/80 leading-relaxed" x-text="'“' + fb.comment + '”'"></p>
+
+                            <!-- Botão para consultar comanda e consumo que gerou a avaliação -->
+                            <div class="flex justify-between items-center pt-2 border-t border-slate-800 text-xs">
+                                <span class="text-emerald-400 font-bold" x-text="'Consumo Total: R$ ' + parseFloat(fb.total || 0).toFixed(2)"></span>
+                                <button @click="openFeedbackDetails(fb)" class="bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/40 px-3 py-1.5 rounded-lg font-bold transition-all flex items-center space-x-1.5">
+                                    <i class="fa-solid fa-receipt"></i>
+                                    <span>Consultar Comanda & Consumo</span>
+                                </button>
+                            </div>
                         </div>
                     </template>
                 </div>
@@ -1320,6 +1329,48 @@
             </div>
         </div>
     </div>
+    <!-- MODAL: DETALHES DA COMANDA DA AVALIAÇÃO -->
+    <div x-show="openFeedbackModalFlag" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-700">
+                <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-receipt text-emerald-400"></i>
+                    <span>Detalhes da Comanda & Avaliação</span>
+                </h3>
+                <button @click="openFeedbackModalFlag = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <template x-if="selectedFeedbackItem">
+                <div class="space-y-3 text-xs">
+                    <div class="bg-slate-900 p-3 rounded-xl border border-slate-700 space-y-1.5">
+                        <p class="text-slate-300"><strong>Mesa:</strong> <span class="text-white font-bold" x-text="selectedFeedbackItem.table"></span></p>
+                        <p class="text-slate-300"><strong>Cliente:</strong> <span class="text-emerald-400 font-bold" x-text="selectedFeedbackItem.client"></span></p>
+                        <p class="text-slate-300"><strong>Horário da Avaliação:</strong> <span class="text-slate-200" x-text="selectedFeedbackItem.time"></span></p>
+                        <p class="text-slate-300"><strong>Valor Total Consumido:</strong> <span class="text-emerald-400 font-bold text-sm" x-text="'R$ ' + parseFloat(selectedFeedbackItem.total || 0).toFixed(2)"></span></p>
+                    </div>
+
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+                        <p class="font-bold text-amber-400 flex items-center space-x-1">
+                            <i class="fa-solid fa-star"></i>
+                            <span>Notas Atribuídas pelo Cliente:</span>
+                        </p>
+                        <div class="flex justify-between text-slate-300">
+                            <span>Atendimento: <strong class="text-amber-400" x-text="selectedFeedbackItem.service + ' / 5'"></strong></span>
+                            <span>Alimento: <strong class="text-amber-400" x-text="selectedFeedbackItem.food + ' / 5'"></strong></span>
+                        </div>
+                        <p class="text-slate-300 pt-1"><strong>Comentário:</strong> <span class="italic text-slate-200" x-text="'“' + selectedFeedbackItem.comment + '”'"></span></p>
+                    </div>
+                </div>
+            </template>
+
+            <div class="pt-3 border-t border-slate-700">
+                <button @click="openFeedbackModalFlag = false" class="w-full bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl text-xs font-bold transition-all">
+                    Fechar Janela
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- SCRIPT DE LÓGICA ULTIMATE 6.0 -->
     <script>
         let categoryChartInstance = null;
@@ -1363,6 +1414,8 @@
                 ratingFood: 5,
                 feedbackComment: '',
                 feedbackFilter: 'todos',
+                openFeedbackModalFlag: false,
+                selectedFeedbackItem: null,
                 currentUser: null,
                 loginInputUser: '',
                 loginInputPassword: '',
@@ -2091,6 +2144,10 @@ exportLiveExcel() {
                     }, 150);
                 },
 
+                openFeedbackDetails(fb) {
+                    this.selectedFeedbackItem = fb;
+                    this.openFeedbackModalFlag = true;
+                },
                 getFilteredFeedbacks() {
                     if (this.feedbackFilter === 'todos') return this.feedbacks;
                     if (this.feedbackFilter === '5') return this.feedbacks.filter(f => parseInt(f.service) === 5 || parseInt(f.food) === 5);
