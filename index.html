@@ -1935,16 +1935,32 @@
                     const itemsList = t.items.map(i => `${i.qty}x ${i.name} (R$ ${(i.qty * i.price).toFixed(2)})`).join(', ');
                     const msgAgradecimento = "Ficamos muito felizes em ter você conosco! Esperamos que sua experiência tenha sido incrível e deliciosa.";
                     // URL interativa para o cliente acessar a comanda e avaliar direto do celular
-                    let currentUrl = window.location.href.split('?')[0];
                     let baseUrl = '';
-                    if (currentUrl.endsWith('index.html')) {
-                        baseUrl = currentUrl.replace('index.html', 'comanda_cliente.html');
-                    } else if (currentUrl.endsWith('sistema_comanda.html')) {
-                        baseUrl = currentUrl.replace('sistema_comanda.html', 'comanda_cliente.html');
-                    } else if (currentUrl.endsWith('/')) {
-                        baseUrl = currentUrl + 'comanda_cliente.html';
+                    let currentUrl = window.location.href;
+                    if (currentUrl.startsWith('file:')) {
+                        // Se estiver rodando localmente no computador, pegamos a URL do GitHub salva ou pedimos uma vez
+                        let savedGithubBase = localStorage.getItem('smartcomanda_github_base_url');
+                        if (!savedGithubBase) {
+                            savedGithubBase = prompt('Informe a URL do seu GitHub Pages onde o sistema está publicado\n(Ex: https://seu-usuario.github.io/seu-repositorio/):', 'https://seu-usuario.github.io/seu-repositorio/');
+                            if (savedGithubBase) {
+                                if (!savedGithubBase.endsWith('/')) savedGithubBase += '/';
+                                localStorage.setItem('smartcomanda_github_base_url', savedGithubBase);
+                            } else {
+                                savedGithubBase = 'https://seu-usuario.github.io/seu-repositorio/';
+                            }
+                        }
+                        baseUrl = savedGithubBase + 'comanda_cliente.html';
                     } else {
-                        baseUrl = currentUrl.substring(0, currentUrl.lastIndexOf('/') + 1) + 'comanda_cliente.html';
+                        let cleanUrl = currentUrl.split('?')[0];
+                        if (cleanUrl.endsWith('index.html')) {
+                            baseUrl = cleanUrl.replace('index.html', 'comanda_cliente.html');
+                        } else if (cleanUrl.endsWith('sistema_comanda.html')) {
+                            baseUrl = cleanUrl.replace('sistema_comanda.html', 'comanda_cliente.html');
+                        } else if (cleanUrl.endsWith('/')) {
+                            baseUrl = cleanUrl + 'comanda_cliente.html';
+                        } else {
+                            baseUrl = cleanUrl.substring(0, cleanUrl.lastIndexOf('/') + 1) + 'comanda_cliente.html';
+                        }
                     }
                     const params = `?mesa=${t.number}&cliente=${encodeURIComponent(t.client || 'Cliente')}&tempo=${encodeURIComponent(formattedSatTime)}&total=${t.total.toFixed(2)}`;
                     const qrText = baseUrl + params;
