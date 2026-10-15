@@ -1281,6 +1281,32 @@
                         <p class="text-slate-300"><strong>Total da Conta:</strong> <span class="text-emerald-400 font-bold" x-text="'R$ ' + qrTotal.toFixed(2)"></span></p>
                     </div>
 
+                    <!-- DETALHAMENTO DOS ITENS CONSUMIDOS -->
+                    <div class="space-y-1.5 py-1">
+                        <p class="text-[11px] font-bold text-emerald-400 flex items-center space-x-1">
+                            <i class="fa-solid fa-utensils"></i>
+                            <span>Itens Consumidos:</span>
+                        </p>
+                        <template x-if="qrItems && qrItems.length > 0">
+                            <div class="space-y-1 divide-y divide-slate-800 bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+                                <template x-for="item in qrItems" :key="item.id || item.name">
+                                    <div class="pt-1 flex justify-between items-center text-[11px]">
+                                        <div class="text-slate-200 font-medium">
+                                            <span x-text="`${item.qty}x ${item.name}`"></span>
+                                            <span class="text-[10px] text-slate-400 block" x-text="`Unid: R$ ${parseFloat(item.price).toFixed(2)}`"></span>
+                                        </div>
+                                        <span class="text-emerald-400 font-bold" x-text="`R$ ${(item.qty * item.price).toFixed(2)}`"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <template x-if="!qrItems || qrItems.length === 0">
+                            <div class="bg-slate-950/60 p-2 rounded-lg border border-slate-800 text-slate-400 text-[10px] italic">
+                                Nenhum item individual registrado nesta comanda.
+                            </div>
+                        </template>
+                    </div>
+
                     <!-- Avaliação de Atendimento e Qualidade do Alimento -->
                     <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-slate-300 text-xs space-y-3 w-full">
                         <p class="font-bold text-amber-400 text-center flex items-center justify-center space-x-1">
@@ -1338,7 +1364,7 @@
                         service: ratingService,
                         food: ratingFood,
                         total: qrTotal,
-                        items: window.currentTableItemsForFeedback || [],
+                        items: this.qrItems || [],
                         comment: feedbackComment || 'Sem comentários',
                         time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                     });
@@ -1453,6 +1479,7 @@
                 qrTableNumber: '',
                 qrSatTime: '',
                 qrTotal: 0,
+                qrItems: [],
                 ratingService: 5,
                 ratingFood: 5,
                 feedbackComment: '',
@@ -2070,13 +2097,14 @@
                             baseUrl = cleanUrl.substring(0, cleanUrl.lastIndexOf('/') + 1) + 'comanda_cliente.html';
                         }
                     }
-                    const params = `?mesa=${t.number}&cliente=${encodeURIComponent(t.client || 'Cliente')}&tempo=${encodeURIComponent(formattedSatTime)}&total=${t.total.toFixed(2)}`;
+                    const params = `?mesa=${t.number}&cliente=${encodeURIComponent(t.client || 'Cliente')}&tempo=${encodeURIComponent(formattedSatTime)}&total=${t.total.toFixed(2)}&itens=${encodeURIComponent(JSON.stringify(t.items))}`;
                     const qrText = baseUrl + params;
                     
                     this.qrClientName = t.client || 'Cliente';
                     this.qrTableNumber = t.number;
                     this.qrSatTime = formattedSatTime;
                     this.qrTotal = t.total;
+                    this.qrItems = JSON.parse(JSON.stringify(t.items || []));
                     // Salvamos os itens atuais da mesa para associar ao feedback gerado localmente
                     window.currentTableItemsForFeedback = JSON.parse(JSON.stringify(t.items || []));
                     this.qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=` + encodeURIComponent(qrText);
@@ -2338,68 +2366,162 @@ exportLiveExcel() {
                 },
                 renderDashboardCharts() {
                     setTimeout(() => {
+                        Chart.defaults.color = '#94a3b8';
+                        Chart.defaults.font.family = "'Inter', sans-serif";
+                        Chart.defaults.font.size = 11;
+
+                        // 1. Gráfico de Desempenho de Entrega: Alterado para POLAR AREA (Visual moderno e sofisticado)
                         const ctx1 = document.getElementById('timePerformanceChart');
                         if(ctx1) {
                             if(timePerformanceChartInstance) timePerformanceChartInstance.destroy();
                             timePerformanceChartInstance = new Chart(ctx1, {
-                                type: 'doughnut',
+                                type: 'polarArea',
                                 data: {
                                     labels: ['Entregues no Tempo', 'Entregues Fora do Tempo'],
                                     datasets: [{
                                         data: [this.deliveredOnTimeCount, this.deliveredLateCount],
-                                        backgroundColor: ['#10b981', '#ef4444']
+                                        backgroundColor: ['rgba(16, 185, 129, 0.8)', 'rgba(244, 63, 94, 0.8)'],
+                                        borderColor: ['#10b981', '#f43f5e'],
+                                        borderWidth: 2
                                     }]
                                 },
-                                options: { responsive: true, maintainAspectRatio: false }
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: {
+                                            position: 'bottom',
+                                            labels: { boxWidth: 12, padding: 12, color: '#e2e8f0', font: { weight: '600' } }
+                                        },
+                                        tooltip: {
+                                            backgroundColor: '#0f172a',
+                                            titleFont: { size: 13, weight: 'bold' },
+                                            bodyFont: { size: 12 },
+                                            padding: 12,
+                                            borderColor: '#334155',
+                                            borderWidth: 1
+                                        }
+                                    },
+                                    scales: {
+                                        r: {
+                                            grid: { color: 'rgba(51, 65, 85, 0.4)' },
+                                            ticks: { display: false }
+                                        }
+                                    }
+                                }
                             });
                         }
 
+                        // 2. Gráfico de Faturamento por Categoria: Alterado para LINHA COM GRADIENTE DE PREENCHIMENTO (Estilo financeiro profissional)
                         const ctx2 = document.getElementById('categoryChart');
                         if(ctx2) {
                             if(categoryChartInstance) categoryChartInstance.destroy();
+                            
+                            const canvasEl = ctx2.getContext('2d');
+                            const gradient = canvasEl.createLinearGradient(0, 0, 0, 250);
+                            gradient.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
+                            gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+
                             categoryChartInstance = new Chart(ctx2, {
-                                type: 'doughnut',
+                                type: 'line',
                                 data: {
                                     labels: ['Café da Manhã', 'Almoço', 'Lanche', 'Janta'],
                                     datasets: [{
+                                        label: 'Faturamento (R$)',
                                         data: [35.00, this.totalRevenue > 35 ? this.totalRevenue - 35 : 113.90, 24.00, 45.00],
-                                        backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ec4899']
+                                        borderColor: '#6366f1',
+                                        backgroundColor: gradient,
+                                        borderWidth: 3,
+                                        fill: true,
+                                        tension: 0.4,
+                                        pointBackgroundColor: '#6366f1',
+                                        pointBorderColor: '#ffffff',
+                                        pointBorderWidth: 2,
+                                        pointRadius: 5,
+                                        pointHoverRadius: 7
                                     }]
                                 },
-                                options: { responsive: true, maintainAspectRatio: false }
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: { display: false },
+                                        tooltip: {
+                                            backgroundColor: '#0f172a',
+                                            titleFont: { size: 13, weight: 'bold' },
+                                            bodyFont: { size: 12 },
+                                            padding: 12,
+                                            borderColor: '#334155',
+                                            borderWidth: 1,
+                                            callbacks: {
+                                                label: function(context) {
+                                                    return ' R$ ' + context.raw.toFixed(2);
+                                                }
+                                            }
+                                        }
+                                    },
+                                    scales: {
+                                        x: {
+                                            grid: { display: false },
+                                            ticks: { color: '#94a3b8', font: { weight: '500' } }
+                                        },
+                                        y: {
+                                            grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                                            ticks: { color: '#94a3b8', callback: (val) => 'R$ ' + val }
+                                        }
+                                    }
+                                }
                             });
                         }
 
-                        // Gráfico Interativo: Atendimento (Estrelas)
+                        // 3. Gráfico de Atendimento: Estrelas em BARRAS VERTICAIS ESTILIZADAS (Com gradiente e visual moderno)
                         const ctx3 = document.getElementById('feedbackServiceChart');
                         if(ctx3) {
                             if(feedbackServiceChartInstance) feedbackServiceChartInstance.destroy();
-                            let serviceCounts = [0, 0, 0, 0, 0]; // 1, 2, 3, 4, 5 estrelas
+                            let serviceCounts = [0, 0, 0, 0, 0];
                             this.feedbacks.forEach(f => {
                                 let s = parseInt(f.service) || 5;
                                 if(s >= 1 && s <= 5) serviceCounts[s-1]++;
                             });
-                            // Se sem avaliações reais, exibir amostra padrão
                             if(this.feedbacks.length === 0) serviceCounts = [0, 1, 1, 3, 5];
 
                             feedbackServiceChartInstance = new Chart(ctx3, {
-                                type: 'doughnut',
+                                type: 'bar',
                                 data: {
-                                    labels: ['1 ★ Crítico', '2 ★ Abaixo', '3 ★ Regular', '4 ★ Bom', '5 ★ Excelente'],
+                                    labels: ['1★', '2★', '3★', '4★', '5★'],
                                     datasets: [{
+                                        label: 'Avaliações',
                                         data: serviceCounts,
-                                        backgroundColor: ['#ef4444', '#f59e0b', '#eab308', '#3b82f6', '#10b981']
+                                        backgroundColor: ['#ef4444', '#f59e0b', '#eab308', '#3b82f6', '#10b981'],
+                                        borderRadius: 6,
+                                        barThickness: 18
                                     }]
                                 },
-                                options: { responsive: true, maintainAspectRatio: false }
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: { display: false },
+                                        tooltip: {
+                                            backgroundColor: '#0f172a',
+                                            padding: 10,
+                                            borderColor: '#334155',
+                                            borderWidth: 1
+                                        }
+                                    },
+                                    scales: {
+                                        x: { grid: { display: false }, ticks: { color: '#cbd5e1' } },
+                                        y: { grid: { color: 'rgba(51, 65, 85, 0.2)' }, ticks: { stepSize: 1 } }
+                                    }
+                                }
                             });
                         }
 
-                        // Gráfico Interativo: Alimento (Estrelas)
+                        // 4. Gráfico de Alimento: Estrelas em BARRAS VERTICAIS ESTILIZADAS
                         const ctx4 = document.getElementById('feedbackFoodChart');
                         if(ctx4) {
                             if(feedbackFoodChartInstance) feedbackFoodChartInstance.destroy();
-                            let foodCounts = [0, 0, 0, 0, 0]; // 1, 2, 3, 4, 5 estrelas
+                            let foodCounts = [0, 0, 0, 0, 0];
                             this.feedbacks.forEach(f => {
                                 let foodScore = parseInt(f.food) || 5;
                                 if(foodScore >= 1 && foodScore <= 5) foodCounts[foodScore-1]++;
@@ -2407,15 +2529,34 @@ exportLiveExcel() {
                             if(this.feedbacks.length === 0) foodCounts = [0, 0, 2, 2, 6];
 
                             feedbackFoodChartInstance = new Chart(ctx4, {
-                                type: 'doughnut',
+                                type: 'bar',
                                 data: {
-                                    labels: ['1 ★ Crítico', '2 ★ Abaixo', '3 ★ Regular', '4 ★ Bom', '5 ★ Excelente'],
+                                    labels: ['1★', '2★', '3★', '4★', '5★'],
                                     datasets: [{
+                                        label: 'Avaliações',
                                         data: foodCounts,
-                                        backgroundColor: ['#ef4444', '#f59e0b', '#eab308', '#3b82f6', '#10b981']
+                                        backgroundColor: ['#ef4444', '#f59e0b', '#eab308', '#3b82f6', '#10b981'],
+                                        borderRadius: 6,
+                                        barThickness: 18
                                     }]
                                 },
-                                options: { responsive: true, maintainAspectRatio: false }
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: { display: false },
+                                        tooltip: {
+                                            backgroundColor: '#0f172a',
+                                            padding: 10,
+                                            borderColor: '#334155',
+                                            borderWidth: 1
+                                        }
+                                    },
+                                    scales: {
+                                        x: { grid: { display: false }, ticks: { color: '#cbd5e1' } },
+                                        y: { grid: { color: 'rgba(51, 65, 85, 0.2)' }, ticks: { stepSize: 1 } }
+                                    }
+                                }
                             });
                         }
                     }, 150);
