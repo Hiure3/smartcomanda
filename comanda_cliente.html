@@ -42,6 +42,11 @@
                 <p class="text-slate-300"><strong>Total da Conta:</strong> <span class="text-emerald-400 font-bold text-sm" x-text="'R$ ' + parseFloat(total || 0).toFixed(2)"></span></p>
             </div>
 
+            <!-- Frase de Boas-Vindas Acima da Avaliação -->
+            <div class="bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 text-emerald-300 text-xs text-center w-full">
+                <p class="italic font-medium">"Ficamos muito felizes em ter você conosco! Volte sempre."</p>
+            </div>
+
             <!-- Formulário de Avaliação -->
             <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-slate-300 text-xs space-y-4 w-full shadow-lg">
                 <p class="font-bold text-amber-400 text-center flex items-center justify-center space-x-1 text-sm">
@@ -85,9 +90,7 @@
                 </div>
             </div>
 
-            <div class="bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 text-emerald-300 text-xs text-center">
-                <p class="italic">"Ficamos muito felizes em ter você conosco! Volte sempre."</p>
-            </div>
+
         </div>
 
         <div class="pt-3 border-t border-slate-700 w-full">
@@ -160,6 +163,7 @@
                         service: this.ratingService,
                         food: this.ratingFood,
                         comment: this.comment || 'Sem comentários',
+                        total: this.total,
                         time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                     };
 
