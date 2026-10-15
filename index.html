@@ -1665,10 +1665,11 @@
                 },
                 openEditClientModal(table) {
                     this.editingTable = table;
-                    this.tempClientName = table.client || '';
-                    this.tempClientWhatsapp = table.whatsapp || '';
-                    this.tempClientEmail = table.email || '';
-                    this.tempClientBirthday = table.birthday || '';
+                    // Sempre abrir com os campos vazios para inserir um novo cliente na mesa
+                    this.tempClientName = '';
+                    this.tempClientWhatsapp = '';
+                    this.tempClientEmail = '';
+                    this.tempClientBirthday = '';
                     this.openEditClientModalFlag = true;
                 },
 
