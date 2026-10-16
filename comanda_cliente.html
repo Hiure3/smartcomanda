@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartComanda - Comanda Digital da Mesa</title>
+    <title>SmartComanda - Comanda Digital & Encomendas</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -35,7 +35,7 @@
         </div>
         <div class="flex flex-col text-left">
             <span class="text-xs font-black uppercase tracking-wider text-slate-950">SmartComanda</span>
-            <span class="text-xs font-extrabold text-slate-950">Pedido finalizado com sucesso!</span>
+            <span class="text-xs font-extrabold text-slate-950" x-text="notificationText || 'Pedido finalizado com sucesso!'"></span>
         </div>
         <button @click="showSuccessNotification = false" class="text-slate-900 hover:text-black ml-2 font-bold text-sm">
             <i class="fa-solid fa-xmark"></i>
@@ -43,121 +43,193 @@
     </div>
 
     <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl flex flex-col space-y-5">
-        <!-- Cabeçalho -->
-        <div class="flex justify-between items-center pb-4 border-b border-slate-700">
-            <div class="flex items-center space-x-2">
-                <div class="bg-emerald-500 text-slate-950 p-2 rounded-xl font-bold text-lg flex items-center justify-center w-9 h-9 shadow">
-                    <i class="fa-solid fa-utensils"></i>
-                </div>
-                <div>
-                    <h3 class="font-bold text-base text-white">SmartComanda Digital</h3>
-                    <p class="text-xs text-emerald-400 font-bold" x-text="`Mesa ${tableNumber}`"></p>
-                </div>
-            </div>
-            <span class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-full font-bold flex items-center space-x-1.5">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Tempo Real</span>
-            </span>
-        </div>
-
-        <!-- BANNER DE COMANDA FINALIZADA -->
-        <template x-if="isFinalized">
-            <div class="bg-emerald-500/20 border-2 border-emerald-500 p-3.5 rounded-xl text-center space-y-1 animate-pulse">
-                <p class="text-xs font-black text-emerald-300 flex items-center justify-center space-x-1.5">
-                    <i class="fa-solid fa-flag-checkered text-base"></i>
-                    <span>PEDIDO FINALIZADO COM SUCESSO!</span>
-                </p>
-                <p class="text-[11px] text-slate-300">Sua comanda foi encerrada pelo estabelecimento. Agradecemos a preferência!</p>
-            </div>
-        </template>
-
-        <!-- Info do Cliente e Tempo -->
-        <div class="bg-slate-900 p-4 rounded-xl border border-slate-700/80 space-y-2 text-xs">
+        
+        <!-- Cabeçalho & Seleção de Abas -->
+        <div class="flex flex-col space-y-3 pb-4 border-b border-slate-700">
             <div class="flex justify-between items-center">
-                <span class="text-slate-400">Cliente Responsável:</span>
-                <strong class="text-white font-bold text-sm" x-text="clientName || 'Aguardando identificação...'"></strong>
-            </div>
-            <div class="flex justify-between items-center">
-                <span class="text-slate-400">Tempo na Mesa:</span>
-                <strong class="text-indigo-400 font-mono font-bold" x-text="satTime"></strong>
-            </div>
-            <div class="flex justify-between items-center pt-2 border-t border-slate-800">
-                <span class="text-slate-400 font-bold">Total Atual da Conta:</span>
-                <strong class="text-emerald-400 font-bold text-base" x-text="`R$ ${total.toFixed(2)}`"></strong>
-            </div>
-        </div>
-
-        <!-- Lista de Itens Consumidos -->
-        <div class="space-y-2">
-            <h4 class="text-xs font-bold text-slate-300 flex items-center space-x-1.5">
-                <i class="fa-solid fa-list-check text-indigo-400"></i>
-                <span>Itens Lançados na Comanda:</span>
-            </h4>
-            <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 max-h-52 overflow-y-auto space-y-2 text-xs">
-                <template x-if="items.length === 0">
-                    <p class="text-slate-500 text-center py-4 italic">Nenhum item lançado na mesa ainda.</p>
-                </template>
-                <template x-for="item in items" :key="item.id || item.name">
-                    <div class="flex justify-between items-center py-1.5 border-b border-slate-900 last:border-0">
-                        <div>
-                            <span class="font-medium text-white" x-text="`${item.qty}x ${item.name}`"></span>
-                            <span class="text-[10px] block px-1.5 py-0.5 rounded font-bold w-fit mt-0.5"
-                                  :class="{
-                                      'bg-amber-500/10 text-amber-400': item.status === 'Pendente',
-                                      'bg-blue-500/10 text-blue-400': item.status === 'Em Preparo',
-                                      'bg-emerald-500/20 text-emerald-400': item.status === 'Pronto'
-                                  }" x-text="item.status || 'Pendente'"></span>
-                        </div>
-                        <span class="text-emerald-400 font-bold font-mono" x-text="`R$ ${(item.qty * item.price).toFixed(2)}`"></span>
+                <div class="flex items-center space-x-2">
+                    <div class="bg-emerald-500 text-slate-950 p-2 rounded-xl font-bold text-lg flex items-center justify-center w-9 h-9 shadow">
+                        <i class="fa-solid fa-utensils"></i>
                     </div>
-                </template>
+                    <div>
+                        <h3 class="font-bold text-base text-white">SmartComanda Digital</h3>
+                        <p class="text-xs text-emerald-400 font-bold" x-text="activeTab === 'comanda' ? `Mesa ${tableNumber}` : 'Encomendas Futuras'"></p>
+                    </div>
+                </div>
+                <span class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-full font-bold flex items-center space-x-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Online</span>
+                </span>
+            </div>
+
+            <!-- Botões de Alternância entre Comanda do Dia & Encomenda Futura -->
+            <div class="grid grid-cols-2 gap-2 bg-slate-900 p-1 rounded-xl border border-slate-700">
+                <button @click="activeTab = 'comanda'" :class="activeTab === 'comanda' ? 'bg-emerald-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="py-2 text-xs rounded-lg transition-all flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-receipt"></i>
+                    <span>Comanda da Mesa</span>
+                </button>
+                <button @click="activeTab = 'encomenda'" :class="activeTab === 'encomenda' ? 'bg-indigo-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="py-2 text-xs rounded-lg transition-all flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-box-open"></i>
+                    <span>Fazer Encomenda</span>
+                </button>
             </div>
         </div>
 
-        <!-- Avaliação da Experiência -->
-        <div class="bg-slate-900 p-4 rounded-xl border border-slate-700/80 space-y-3 text-xs">
-            <p class="font-bold text-amber-400 text-center flex items-center justify-center space-x-1.5">
-                <i class="fa-solid fa-star"></i>
-                <span>Avalie sua Experiência</span>
-            </p>
-
-            <!-- Atendimento -->
-            <div class="space-y-1">
-                <div class="flex justify-between">
-                    <span class="text-slate-300">Atendimento:</span>
-                    <span class="text-amber-400 font-bold" x-text="`${ratingService} / 5`"></span>
+        <!-- ABA 1: COMANDA DA MESA -->
+        <div x-show="activeTab === 'comanda'" class="space-y-4">
+            <!-- BANNER DE COMANDA FINALIZADA -->
+            <template x-if="isFinalized">
+                <div class="bg-emerald-500/20 border-2 border-emerald-500 p-3.5 rounded-xl text-center space-y-1 animate-pulse">
+                    <p class="text-xs font-black text-emerald-300 flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-flag-checkered text-base"></i>
+                        <span>PEDIDO FINALIZADO COM SUCESSO!</span>
+                    </p>
+                    <p class="text-[11px] text-slate-300">Sua comanda foi encerrada pelo estabelecimento. Agradecemos a preferência!</p>
                 </div>
-                <div class="flex justify-center space-x-1.5">
-                    <template x-for="star in [1,2,3,4,5]" :key="'srv-'+star">
-                        <button @click="ratingService = star" class="text-lg focus:outline-none transition-transform hover:scale-125">
-                            <i class="fa-star" :class="star <= ratingService ? 'fa-solid text-amber-400' : 'fa-regular text-slate-600'"></i>
-                        </button>
+            </template>
+
+            <!-- Info do Cliente e Tempo -->
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700/80 space-y-2 text-xs">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">Cliente Responsável:</span>
+                    <strong class="text-white font-bold text-sm" x-text="clientName || 'Aguardando identificação...'"></strong>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">Tempo na Mesa:</span>
+                    <strong class="text-indigo-400 font-mono font-bold" x-text="satTime"></strong>
+                </div>
+                <div class="flex justify-between items-center pt-2 border-t border-slate-800">
+                    <span class="text-slate-400 font-bold">Total Atual da Conta:</span>
+                    <strong class="text-emerald-400 font-bold text-base" x-text="`R$ ${total.toFixed(2)}`"></strong>
+                </div>
+            </div>
+
+            <!-- Lista de Itens Consumidos -->
+            <div class="space-y-2">
+                <h4 class="text-xs font-bold text-slate-300 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-list-check text-indigo-400"></i>
+                    <span>Itens Lançados na Comanda:</span>
+                </h4>
+                <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 max-h-52 overflow-y-auto space-y-2 text-xs">
+                    <template x-if="items.length === 0">
+                        <p class="text-slate-500 text-center py-4 italic">Nenhum item lançado na mesa ainda.</p>
+                    </template>
+                    <template x-for="item in items" :key="item.id || item.name">
+                        <div class="flex justify-between items-center py-1.5 border-b border-slate-900 last:border-0">
+                            <div>
+                                <span class="font-medium text-white" x-text="`${item.qty}x ${item.name}`"></span>
+                                <span class="text-[10px] block px-1.5 py-0.5 rounded font-bold w-fit mt-0.5"
+                                      :class="{
+                                          'bg-amber-500/10 text-amber-400': item.status === 'Pendente',
+                                          'bg-blue-500/10 text-blue-400': item.status === 'Em Preparo',
+                                          'bg-emerald-500/20 text-emerald-400': item.status === 'Pronto'
+                                      }" x-text="item.status || 'Pendente'"></span>
+                            </div>
+                            <span class="text-emerald-400 font-bold font-mono" x-text="`R$ ${(item.qty * item.price).toFixed(2)}`"></span>
+                        </div>
                     </template>
                 </div>
             </div>
 
-            <!-- Alimento -->
-            <div class="space-y-1 pt-2 border-t border-slate-800">
-                <div class="flex justify-between">
-                    <span class="text-slate-300">Qualidade do Alimento:</span>
-                    <span class="text-amber-400 font-bold" x-text="`${ratingFood} / 5`"></span>
+            <!-- Avaliação da Experiência -->
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700/80 space-y-3 text-xs">
+                <p class="font-bold text-amber-400 text-center flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-star"></i>
+                    <span>Avalie sua Experiência</span>
+                </p>
+
+                <!-- Atendimento -->
+                <div class="space-y-1">
+                    <div class="flex justify-between">
+                        <span class="text-slate-300">Atendimento:</span>
+                        <span class="text-amber-400 font-bold" x-text="`${ratingService} / 5`"></span>
+                    </div>
+                    <div class="flex justify-center space-x-1.5">
+                        <template x-for="star in [1,2,3,4,5]" :key="'srv-'+star">
+                            <button @click="ratingService = star" class="text-lg focus:outline-none transition-transform hover:scale-125">
+                                <i class="fa-star" :class="star <= ratingService ? 'fa-solid text-amber-400' : 'fa-regular text-slate-600'"></i>
+                            </button>
+                        </template>
+                    </div>
                 </div>
-                <div class="flex justify-center space-x-1.5">
-                    <template x-for="star in [1,2,3,4,5]" :key="'food-'+star">
-                        <button @click="ratingFood = star" class="text-lg focus:outline-none transition-transform hover:scale-125">
-                            <i class="fa-star" :class="star <= ratingFood ? 'fa-solid text-amber-400' : 'fa-regular text-slate-600'"></i>
-                        </button>
-                    </template>
+
+                <!-- Alimento -->
+                <div class="space-y-1 pt-2 border-t border-slate-800">
+                    <div class="flex justify-between">
+                        <span class="text-slate-300">Qualidade do Alimento:</span>
+                        <span class="text-amber-400 font-bold" x-text="`${ratingFood} / 5`"></span>
+                    </div>
+                    <div class="flex justify-center space-x-1.5">
+                        <template x-for="star in [1,2,3,4,5]" :key="'food-'+star">
+                            <button @click="ratingFood = star" class="text-lg focus:outline-none transition-transform hover:scale-125">
+                                <i class="fa-star" :class="star <= ratingFood ? 'fa-solid text-amber-400' : 'fa-regular text-slate-600'"></i>
+                            </button>
+                        </template>
+                    </div>
                 </div>
+
+                <div class="pt-1">
+                    <input type="text" x-model="feedbackComment" placeholder="Deixe seu comentário ou sugestão..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+                </div>
+
+                <button @click="submitFeedback()" class="w-full bg-amber-600 hover:bg-amber-500 text-white py-2.5 rounded-xl font-bold transition-all shadow">
+                    Enviar Avaliação
+                </button>
+            </div>
+        </div>
+
+        <!-- ABA 2: FAZER ENCOMENDA FUTURA -->
+        <div x-show="activeTab === 'encomenda'" class="space-y-4">
+            <div class="bg-indigo-500/10 border border-indigo-500/30 p-3.5 rounded-xl space-y-1">
+                <h4 class="text-xs font-bold text-indigo-300 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-calendar-plus text-indigo-400"></i>
+                    <span>Agendar Pedido ou Encomenda Futura</span>
+                </h4>
+                <p class="text-[11px] text-slate-300">Faça o seu pedido antecipado para festas, eventos ou retiradas agendadas.</p>
             </div>
 
-            <div class="pt-1">
-                <input type="text" x-model="feedbackComment" placeholder="Deixe seu comentário ou sugestão..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
-            </div>
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700/80 space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-400 mb-1 font-medium">Seu Nome Completo *</label>
+                    <input type="text" x-model="encName" placeholder="Ex: Maria Santos" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                </div>
 
-            <button @click="submitFeedback()" class="w-full bg-amber-600 hover:bg-amber-500 text-white py-2.5 rounded-xl font-bold transition-all shadow">
-                Enviar Avaliação
-            </button>
+                <div>
+                    <label class="block text-slate-400 mb-1 font-medium">Seu WhatsApp / Telefone *</label>
+                    <input type="text" x-model="encWhatsapp" placeholder="Ex: 5511999999999" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-400 mb-1 font-medium">Data Agendada *</label>
+                        <input type="date" x-model="encDate" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1 font-medium">Horário Desejado *</label>
+                        <input type="time" x-model="encTime" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-slate-400 mb-1 font-medium">Setor de Atendimento</label>
+                    <select x-model="encSector" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                        <option value="Restaurante / Encomendas">Restaurante / Encomendas</option>
+                        <option value="Confeitaria / Bolos">Confeitaria / Bolos</option>
+                        <option value="Salgados & Eventos">Salgados & Eventos</option>
+                        <option value="Bebidas / Bar">Bebidas / Bar</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-slate-400 mb-1 font-medium">Descreva os Pratos / Itens da Encomenda *</label>
+                    <textarea x-model="encDescription" rows="3" placeholder="Ex: 2x Feijoada Completa, 1x Pudim de Leite Condensado..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"></textarea>
+                </div>
+
+                <button @click="submitEncomenda()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold transition-all shadow-lg flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>Enviar Encomenda para o Restaurante</span>
+                </button>
+            </div>
         </div>
 
         <!-- Instagram -->
@@ -176,6 +248,7 @@
     <script>
         function clienteApp() {
             return {
+                activeTab: 'comanda',
                 tableNumber: 1,
                 clientName: 'Carregando...',
                 satTime: '00:00',
@@ -185,9 +258,18 @@
                 ratingFood: 5,
                 feedbackComment: '',
                 showSuccessNotification: false,
+                notificationText: 'Pedido finalizado com sucesso!',
                 isFinalized: false,
                 previousStatus: null,
                 
+                // Campos de Encomenda Futura
+                encName: '',
+                encWhatsapp: '',
+                encDate: '',
+                encTime: '',
+                encSector: 'Restaurante / Encomendas',
+                encDescription: '',
+
                 async init() {
                     const urlParams = new URLSearchParams(window.location.search);
                     const mesaParam = urlParams.get('mesa');
@@ -195,23 +277,35 @@
                         this.tableNumber = parseInt(mesaParam);
                     }
 
-                    // Se houver parâmetros passados diretamente na URL
-                    if(urlParams.get('cliente')) this.clientName = decodeURIComponent(urlParams.get('cliente'));
+                    // Se a URL possuir parâmetro aba=encomenda, abre direto na aba de encomenda
+                    if(urlParams.get('aba') === 'encomenda') {
+                        this.activeTab = 'encomenda';
+                    }
+
+                    if(urlParams.get('cliente')) {
+                        this.clientName = decodeURIComponent(urlParams.get('cliente'));
+                        this.encName = this.clientName;
+                    }
                     if(urlParams.get('tempo')) this.satTime = decodeURIComponent(urlParams.get('tempo'));
                     if(urlParams.get('total')) this.total = parseFloat(urlParams.get('total')) || 0;
                     if(urlParams.get('itens')) {
                         try { this.items = JSON.parse(decodeURIComponent(urlParams.get('itens'))); } catch(e){}
                     }
 
+                    // Preencher data padrão para amanhã
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    this.encDate = tomorrow.toISOString().split('T')[0];
+                    this.encTime = "12:00";
+
                     // Buscar dados em tempo real do Firebase
                     await this.fetchTableData();
                     setInterval(() => this.fetchTableData(), 3000);
                 },
 
-                triggerSuccessNotification() {
+                triggerSuccessNotification(msg = 'Pedido finalizado com sucesso!') {
+                    this.notificationText = msg;
                     this.showSuccessNotification = true;
-                    this.isFinalized = true;
-                    // Auto fechar a notificação flutuante após 7 segundos
                     setTimeout(() => {
                         this.showSuccessNotification = false;
                     }, 7000);
@@ -235,9 +329,9 @@
                                 }
 
                                 if(tableFound) {
-                                    // Detectar se o restaurante acabou de finalizar a comanda (mudou de 'ocupada' para 'livre')
                                     if(this.previousStatus === 'ocupada' && tableFound.status === 'livre') {
-                                        this.triggerSuccessNotification();
+                                        this.triggerSuccessNotification('Pedido finalizado com sucesso!');
+                                        this.isFinalized = true;
                                     }
                                     this.previousStatus = tableFound.status;
 
@@ -250,9 +344,7 @@
                                         this.total = tableFound.total || 0;
                                         this.items = tableFound.items || [];
                                     } else if(tableFound.status === 'livre' && this.previousStatus === 'livre' && !this.isFinalized) {
-                                        // Se abriu o QR Code quando a mesa já estava finalizada
                                         this.isFinalized = true;
-                                        this.showSuccessNotification = true;
                                     }
                                 }
                             }
@@ -279,10 +371,43 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(fb)
                         });
-                        this.triggerSuccessNotification();
+                        this.triggerSuccessNotification('Avaliação enviada com sucesso!');
                         this.feedbackComment = '';
                     } catch(e) {
-                        this.triggerSuccessNotification();
+                        this.triggerSuccessNotification('Avaliação registrada com sucesso!');
+                    }
+                },
+
+                async submitEncomenda() {
+                    if(!this.encName || !this.encWhatsapp || !this.encDescription) {
+                        alert('Por favor, preencha o seu nome, WhatsApp e a descrição dos itens!');
+                        return;
+                    }
+
+                    const encomendaData = {
+                        id: Date.now(),
+                        orderCode: 'ENC-' + Math.floor(1000 + Math.random() * 9000),
+                        client: this.encName,
+                        whatsapp: this.encWhatsapp,
+                        date: this.encDate,
+                        time: this.encTime,
+                        sector: this.encSector,
+                        itemsDescription: this.encDescription,
+                        createdAt: new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                    };
+
+                    try {
+                        await fetch('https://smartcomanda-df58e-default-rtdb.firebaseio.com/encomendas.json', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(encomendaData)
+                        });
+                        this.triggerSuccessNotification('Encomenda enviada com sucesso!');
+                        alert('Sua encomenda foi enviada com sucesso! O restaurante já recebeu o seu agendamento no painel principal.');
+                        this.encDescription = '';
+                        this.activeTab = 'comanda';
+                    } catch(e) {
+                        alert('Erro ao enviar encomenda. Tente novamente.');
                     }
                 }
             }
