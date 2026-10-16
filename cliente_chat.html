@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartComanda - Atendimento Mesa</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f4f6f9; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .phone-frame { width: 100%; max-width: 420px; height: 100%; max-height: 850px; background: white; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-radius: 0; overflow: hidden; }
+        @media (min-width: 480px) { .phone-frame { border-radius: 24px; height: 90vh; border: 8px solid #1f2328; } }
+        .header { background: #1f2328; color: white; padding: 16px; text-align: center; font-size: 18px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .status-badge { font-size: 12px; background: #238636; padding: 4px 8px; border-radius: 12px; }
+        .messages { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #fafbfc; }
+        .msg { max-width: 75%; padding: 12px 16px; border-radius: 16px; font-size: 14px; line-height: 1.4; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .msg.client { background: #0969da; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .msg.admin { background: white; color: #24292f; align-self: flex-start; border: 1px solid #d0d7de; border-bottom-left-radius: 4px; }
+        .input-area { padding: 16px; background: white; border-top: 1px solid #d0d7de; display: flex; gap: 8px; }
+        .input-area input { flex: 1; padding: 12px 16px; border: 1px solid #d0d7de; border-radius: 24px; font-size: 14px; outline: none; }
+        .input-area input:focus { border-color: #0969da; }
+        .input-area button { background: #0969da; color: white; border: none; width: 48px; height: 48px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .input-area button:hover { background: #0550ae; }
+    </style>
+</head>
+<body>
+    <div class="phone-frame">
+        <div class="header">
+            <span>Mesa 1 - Marcio</span>
+            <span class="status-badge">Online</span>
+        </div>
+        <div class="messages" id="clientMessages">
+            <!-- Mensagens -->
+        </div>
+        <div class="input-area">
+            <input type="text" id="clientInput" placeholder="Escreva para o atendimento..." onkeypress="checkClientSend(event)">
+            <button onclick="sendClientMessage()">➤</button>
+        </div>
+    </div>
+
+    <script>
+        const tableId = 1;
+        let chatsData = {
+            1: { name: "Mesa 1 - Marcio", messages: [{ sender: 'client', text: 'Olá, poderiam trazer mais um copo gelado por favor?' }, { sender: 'admin', text: 'Claro, Marcio! Estamos levando agora mesmo.' }] }
+        };
+
+        function loadStorage() {
+            const saved = localStorage.getItem('smartcomanda_chat_sync');
+            if (saved) {
+                chatsData = JSON.parse(saved);
+            }
+        }
+
+        function renderClientMessages() {
+            loadStorage();
+            const container = document.getElementById('clientMessages');
+            container.innerHTML = '';
+            const messages = chatsData[tableId]?.messages || [];
+            messages.forEach(msg => {
+                const div = document.createElement('div');
+                // Inverter remetente do ponto de vista do cliente
+                const senderClass = msg.sender === 'client' ? 'client' : 'admin';
+                div.className = `msg ${senderClass}`;
+                div.innerText = msg.text;
+                container.appendChild(div);
+            });
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function sendClientMessage() {
+            const input = document.getElementById('clientInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            loadStorage();
+            if (!chatsData[tableId]) {
+                chatsData[tableId] = { name: "Mesa 1 - Marcio", messages: [] };
+            }
+
+            chatsData[tableId].messages.push({ sender: 'client', text: text });
+            localStorage.setItem('smartcomanda_chat_sync', JSON.stringify(chatsData));
+            input.value = '';
+            renderClientMessages();
+        }
+
+        function checkClientSend(e) {
+            if (e.key === 'Enter') sendClientMessage();
+        }
+
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'smartcomanda_chat_sync') {
+                renderClientMessages();
+            }
+        });
+
+        // Atualização periódica leve para garantir sincronia na mesma aba se necessário
+        setInterval(renderClientMessages, 1000);
+        renderClientMessages();
+    </script>
+</body>
+</html>
