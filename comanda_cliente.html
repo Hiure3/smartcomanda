@@ -168,6 +168,20 @@
                         <option value="📦 Embalagem & Expedição">📦 Embalagem & Expedição</option>
                     </select>
                 </div>
+                <!-- CAMPO NOVO: OPERADOR QUE RECEBEU O PEDIDO -->
+                <div>
+                    <label class="block font-semibold text-indigo-300 mb-1 flex items-center space-x-1">
+                        <i class="fa-solid fa-user-tie"></i>
+                        <span>Operador / Atendente Responsável *</span>
+                    </label>
+                    <select x-model="encomendaOperador" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                        <option value="Carlos (Atendente / Caixa)">Carlos (Atendente / Caixa)</option>
+                        <option value="Ana (Caixa / Recepção)">Ana (Caixa / Recepção)</option>
+                        <option value="João (Garçom / Balcão)">João (Garçom / Balcão)</option>
+                        <option value="Maria (Gerência)">Maria (Gerência)</option>
+                        <option value="Administrador Sistema">Administrador Sistema</option>
+                    </select>
+                </div>
 
                 <!-- CAMPO 2 & 3: SELEÇÃO DE PRODUTOS CADASTRADOS DO SISTEMA E VALORES -->
                 <div>
@@ -280,12 +294,12 @@
                 enviado: false,
                 tipoEnvio: 'avaliacao',
 
-                // Campos de encomenda futura
                 encomendaNome: '',
                 encomendaWhatsapp: '',
                 encomendaData: '',
                 encomendaHora: '12:00',
                 encomendaSetor: '🍞 Panificação / Padaria',
+                encomendaOperador: 'Carlos (Atendente / Caixa)',
                 encomendaItensSelecionados: [],
                 encomendaObs: '',
                 selectedProdId: '',
@@ -326,7 +340,6 @@
                         }
                     }
 
-                    // Tentar carregar produtos do cardápio salvos no localStorage
                     try {
                         const savedMenu = localStorage.getItem('smartcomanda_menu_v8');
                         if(savedMenu) {
@@ -368,6 +381,7 @@
                 async enviarAvaliacao() {
                     const feedback = {
                         id: Date.now(),
+                        orderCode: orderCode,
                         table: this.tableNumber,
                         client: this.clientName,
                         service: this.ratingService,
@@ -401,18 +415,29 @@
                         return alert('Por favor, selecione ao menos um produto para a encomenda.');
                     }
 
+                    let lastSeq = 0;
+                    try {
+                        const savedSeq = localStorage.getItem('smartcomanda_last_order_seq');
+                        if (savedSeq) lastSeq = parseInt(savedSeq);
+                    } catch(e){}
+                    lastSeq += 1;
+                    try {
+                        localStorage.setItem('smartcomanda_last_order_seq', lastSeq.toString());
+                    } catch(e){}
+                    const orderCode = 'ENCOMENDA: ' + (lastSeq < 10 ? '0' + lastSeq : lastSeq);
+
                     const totalCalc = this.calcularTotalEncomenda();
-                    const itemsDesc = this.encomendaItensSelecionados.map(i => `${i.qty}x ${i.name} (R$ ${(i.qty * i.price).toFixed(2)})`).join('
-') + (this.encomendaObs ? `
-Obs: ${this.encomendaObs}` : '');
+                    const itemsDesc = this.encomendaItensSelecionados.map(i => `${i.qty}x ${i.name} (R$ ${(i.qty * i.price).toFixed(2)})`).join(', ') + (this.encomendaObs ? ` | Obs: ${this.encomendaObs}` : '');
 
                     const encomendaPayload = {
                         id: Date.now(),
+                        orderCode: orderCode,
                         client: this.encomendaNome,
                         whatsapp: this.encomendaWhatsapp,
                         date: this.encomendaData,
                         time: this.encomendaHora || '12:00',
                         sector: this.encomendaSetor || '🍞 Panificação / Padaria',
+                        operator: this.encomendaOperador || 'Carlos (Atendente / Caixa)',
                         itemsList: this.encomendaItensSelecionados,
                         itemsDescription: itemsDesc,
                         totalValue: totalCalc,
@@ -428,7 +453,6 @@ Obs: ${this.encomendaObs}` : '');
                         });
                     } catch(err) {}
 
-                    // Fallback Local
                     let encomendas = [];
                     try {
                         const saved = localStorage.getItem('smartcomanda_encomendas_v8');
