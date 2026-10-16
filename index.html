@@ -2087,6 +2087,7 @@
                     this.calcTotalPeople();
                     
                     // Sincronizar automaticamente com o Firebase para acesso via celular no QR Code
+                                        // Sincronizar automaticamente com o Firebase para acesso via celular no QR Code
                     fetch('https://smartcomanda-df58e-default-rtdb.firebaseio.com/tables.json', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
@@ -2095,7 +2096,7 @@
                         if(res.ok) console.log("Sincronizado com o Firebase com sucesso!");
                     }).catch(e => {
                         console.error("Erro ao sincronizar com o Firebase:", e);
-                    });).catch(e => {});
+                    });
                 },
 
                 calcTotalPeople() {
