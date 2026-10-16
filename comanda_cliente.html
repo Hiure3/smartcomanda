@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartComanda - Comanda Digital & Encomendas</title>
+    <title>SmartComanda - Padaria & Confeitaria Digital</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
+        [x-cloak] { display: none !important; }
         @keyframes slideInRight {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
@@ -19,9 +20,9 @@
         }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4 relative overflow-x-hidden" x-data="clienteApp()" x-init="init()">
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-3 sm:p-4 relative overflow-x-hidden" x-data="clienteApp()" x-init="init()">
 
-    <!-- NOTIFICAÇÃO NO CANTO SUPERIOR DIREITO DO TELEMÓVEL DO CLIENTE -->
+    <!-- NOTIFICAÇÃO NO CANTO SUPERIOR DIREITO DO TELEMÓVEL DO CLIENTE (EXIBIDA APENAS UMA VEZ NA FINALIZAÇÃO DA COMANDA NO WINDOWS) -->
     <div x-show="showSuccessNotification" x-cloak 
          x-transition:enter="transition ease-out duration-300 transform"
          x-transition:enter-start="translate-x-full opacity-0"
@@ -30,47 +31,111 @@
          x-transition:leave-start="translate-x-0 opacity-100"
          x-transition:leave-end="translate-x-full opacity-0"
          class="fixed top-4 right-4 z-50 bg-emerald-500 text-slate-950 font-bold px-4 py-3 rounded-xl shadow-2xl border-2 border-emerald-300 flex items-center space-x-2.5 max-w-xs animate-slide-in">
-        <div class="bg-slate-950 text-emerald-400 p-1.5 rounded-lg flex items-center justify-center">
+        <div class="bg-slate-950 text-emerald-400 p-1.5 rounded-lg flex items-center justify-center shrink-0">
             <i class="fa-solid fa-circle-check text-lg"></i>
         </div>
         <div class="flex flex-col text-left">
-            <span class="text-xs font-black uppercase tracking-wider text-slate-950">SmartComanda</span>
-            <span class="text-xs font-extrabold text-slate-950" x-text="notificationText || 'Pedido finalizado com sucesso!'"></span>
+            <span class="text-[10px] font-black uppercase tracking-wider text-slate-950">SmartComanda</span>
+            <span class="text-xs font-extrabold text-slate-950" x-text="notificationText"></span>
         </div>
         <button @click="showSuccessNotification = false" class="text-slate-900 hover:text-black ml-2 font-bold text-sm">
             <i class="fa-solid fa-xmark"></i>
         </button>
     </div>
 
-    <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl flex flex-col space-y-5">
-        
-        <!-- Cabeçalho & Seleção de Abas -->
-        <div class="flex flex-col space-y-3 pb-4 border-b border-slate-700">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center space-x-2">
-                    <div class="bg-emerald-500 text-slate-950 p-2 rounded-xl font-bold text-lg flex items-center justify-center w-9 h-9 shadow">
-                        <i class="fa-solid fa-utensils"></i>
+    <!-- MODAL DE CHAT - TALK TO ATTENDANT -->
+    <div x-show="showChatModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl flex flex-col h-[520px] overflow-hidden">
+            <!-- Header Chat -->
+            <div class="bg-slate-900 p-3.5 border-b border-slate-700 flex justify-between items-center">
+                <div class="flex items-center space-x-2.5">
+                    <div class="bg-indigo-600 text-white w-9 h-9 rounded-xl flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-headset text-base"></i>
                     </div>
                     <div>
-                        <h3 class="font-bold text-base text-white">SmartComanda Digital</h3>
-                        <p class="text-xs text-emerald-400 font-bold" x-text="activeTab === 'comanda' ? `Mesa ${tableNumber}` : 'Encomendas Futuras'"></p>
+                        <h4 class="font-bold text-sm text-white">Atendimento da Padaria</h4>
+                        <p class="text-[10px] text-emerald-400 flex items-center space-x-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span>Atendente em linha • Mesa <span x-text="tableNumber"></span></span>
+                        </p>
                     </div>
                 </div>
-                <span class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-full font-bold flex items-center space-x-1.5">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span>Online</span>
-                </span>
+                <button @click="showChatModal = false" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
             </div>
 
-            <!-- Botões de Alternância entre Comanda do Dia & Encomenda Futura -->
+            <!-- Messages List -->
+            <div id="chatMessagesBox" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950 text-xs">
+                <template x-if="chatMessages.length === 0">
+                    <div class="text-center py-8 text-slate-500 space-y-2">
+                        <i class="fa-solid fa-comments text-3xl opacity-50"></i>
+                        <p>Olá! Como podemos te ajudar hoje?</p>
+                        <p class="text-[10px]">Envie uma mensagem para a nossa equipe.</p>
+                    </div>
+                </template>
+                <template x-for="msg in chatMessages" :key="msg.id || msg.timestamp">
+                    <div class="flex flex-col" :class="msg.sender === 'cliente' ? 'items-end' : 'items-start'">
+                        <div class="max-w-[80%] rounded-2xl px-3.5 py-2" 
+                             :class="msg.sender === 'cliente' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-none'">
+                            <p class="text-xs font-medium leading-relaxed" x-text="msg.text"></p>
+                            <span class="text-[9px] opacity-70 block text-right mt-1" x-text="msg.time"></span>
+                        </div>
+                        <span class="text-[9px] text-slate-500 mt-0.5 px-1" x-text="msg.sender === 'cliente' ? 'Você' : 'Atendente'"></span>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Input Message -->
+            <div class="p-3 bg-slate-900 border-t border-slate-700 flex items-center space-x-2">
+                <input type="text" x-model="newMessage" @keydown.enter="sendChatMessage()" placeholder="Digite sua mensagem..." class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                <button @click="sendChatMessage()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP CONTAINER -->
+    <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-5 shadow-2xl flex flex-col space-y-4">
+        
+        <!-- Cabeçalho & Seleção de Abas -->
+        <div class="flex flex-col space-y-3 pb-3 border-b border-slate-700">
+            <div class="flex justify-between items-start">
+                <div class="flex items-center space-x-2.5">
+                    <div class="bg-emerald-500 text-slate-950 p-2 rounded-xl font-bold text-lg flex items-center justify-center w-10 h-10 shadow shrink-0">
+                        <i class="fa-solid fa-bread-slice"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-white">SmartComanda Padaria</h3>
+                        <p class="text-xs text-emerald-400 font-bold" x-text="activeTab === 'comanda' ? `Mesa ${tableNumber}` : 'Produtos da Casa & Encomendas'"></p>
+                    </div>
+                </div>
+
+                <!-- Lado Direito: Badge Online + Botão Falar com Atendente logo abaixo -->
+                <div class="flex flex-col items-end space-y-1.5 shrink-0">
+                    <span class="text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full font-bold flex items-center space-x-1">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Online</span>
+                    </span>
+
+                    <!-- BOTÃO TALK TO ATTENDANT LOGO ABAIXO DO ONLINE -->
+                    <button @click="showChatModal = true" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all shadow flex items-center space-x-1 border border-indigo-400/30">
+                        <i class="fa-solid fa-comments"></i>
+                        <span>Falar com atendente</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Botões de Alternância entre Comanda do Dia & Encomendas de Produção da Casa -->
             <div class="grid grid-cols-2 gap-2 bg-slate-900 p-1 rounded-xl border border-slate-700">
                 <button @click="activeTab = 'comanda'" :class="activeTab === 'comanda' ? 'bg-emerald-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="py-2 text-xs rounded-lg transition-all flex items-center justify-center space-x-1.5">
                     <i class="fa-solid fa-receipt"></i>
                     <span>Comanda da Mesa</span>
                 </button>
                 <button @click="activeTab = 'encomenda'" :class="activeTab === 'encomenda' ? 'bg-indigo-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="py-2 text-xs rounded-lg transition-all flex items-center justify-center space-x-1.5">
-                    <i class="fa-solid fa-box-open"></i>
-                    <span>Fazer Encomenda</span>
+                    <i class="fa-solid fa-store"></i>
+                    <span>Produtos da Casa</span>
                 </button>
             </div>
         </div>
@@ -89,7 +154,7 @@
             </template>
 
             <!-- Info do Cliente e Tempo -->
-            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700/80 space-y-2 text-xs">
+            <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-700/80 space-y-2 text-xs">
                 <div class="flex justify-between items-center">
                     <span class="text-slate-400">Cliente Responsável:</span>
                     <strong class="text-white font-bold text-sm" x-text="clientName || 'Aguardando identificação...'"></strong>
@@ -110,7 +175,7 @@
                     <i class="fa-solid fa-list-check text-indigo-400"></i>
                     <span>Itens Lançados na Comanda:</span>
                 </h4>
-                <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 max-h-52 overflow-y-auto space-y-2 text-xs">
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 max-h-48 overflow-y-auto space-y-2 text-xs">
                     <template x-if="items.length === 0">
                         <p class="text-slate-500 text-center py-4 italic">Nenhum item lançado na mesa ainda.</p>
                     </template>
@@ -132,7 +197,7 @@
             </div>
 
             <!-- Avaliação da Experiência -->
-            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700/80 space-y-3 text-xs">
+            <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-700/80 space-y-3 text-xs">
                 <p class="font-bold text-amber-400 text-center flex items-center justify-center space-x-1.5">
                     <i class="fa-solid fa-star"></i>
                     <span>Avalie sua Experiência</span>
@@ -156,7 +221,7 @@
                 <!-- Alimento -->
                 <div class="space-y-1 pt-2 border-t border-slate-800">
                     <div class="flex justify-between">
-                        <span class="text-slate-300">Qualidade do Alimento:</span>
+                        <span class="text-slate-300">Qualidade dos Produtos:</span>
                         <span class="text-amber-400 font-bold" x-text="`${ratingFood} / 5`"></span>
                     </div>
                     <div class="flex justify-center space-x-1.5">
@@ -178,67 +243,92 @@
             </div>
         </div>
 
-        <!-- ABA 2: FAZER ENCOMENDA FUTURA -->
+        <!-- ABA 2: ENCOMENDAS DE PRODUÇÃO DA PADARIA -->
         <div x-show="activeTab === 'encomenda'" class="space-y-4">
-            <div class="bg-indigo-500/10 border border-indigo-500/30 p-3.5 rounded-xl space-y-1">
+            <div class="bg-indigo-500/10 border border-indigo-500/30 p-3 rounded-xl space-y-1">
                 <h4 class="text-xs font-bold text-indigo-300 flex items-center space-x-1.5">
-                    <i class="fa-solid fa-calendar-plus text-indigo-400"></i>
-                    <span>Agendar Pedido ou Encomenda Futura</span>
+                    <i class="fa-solid fa-bread-slice text-indigo-400"></i>
+                    <span>Itens & Encomendas de Fabricação Própria</span>
                 </h4>
-                <p class="text-[11px] text-slate-300">Faça o seu pedido antecipado para festas, eventos ou retiradas agendadas.</p>
+                <p class="text-[11px] text-slate-300">Escolha os produtos artesanais da nossa padaria e agende sua encomenda.</p>
             </div>
 
-            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700/80 space-y-3 text-xs">
-                <div>
-                    <label class="block text-slate-400 mb-1 font-medium">Seu Nome Completo *</label>
-                    <input type="text" x-model="encName" placeholder="Ex: Maria Santos" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
-                </div>
+            <!-- Seleção por Categoria de Padaria -->
+            <div class="flex space-x-1.5 overflow-x-auto pb-1 text-xs">
+                <template x-for="cat in padariaCategorias" :key="cat">
+                    <button @click="selectedPadariaCat = cat" 
+                            :class="selectedPadariaCat === cat ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-900 text-slate-400 border border-slate-700 hover:text-white'"
+                            class="px-3 py-1.5 rounded-xl shrink-0 transition-all text-[11px]"
+                            x-text="cat"></button>
+                </template>
+            </div>
 
-                <div>
-                    <label class="block text-slate-400 mb-1 font-medium">Seu WhatsApp / Telefone *</label>
-                    <input type="text" x-model="encWhatsapp" placeholder="Ex: 5511999999999" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+            <!-- Lista de Produtos da Casa com Contador -->
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 max-h-56 overflow-y-auto space-y-2 text-xs">
+                <template x-for="prod in filteredPadariaProducts" :key="prod.id">
+                    <div class="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800/80">
+                        <div class="flex-1 pr-2">
+                            <span class="font-bold text-white block" x-text="prod.name"></span>
+                            <span class="text-[10px] text-slate-400 block" x-text="prod.desc"></span>
+                            <span class="text-emerald-400 font-bold font-mono text-xs block mt-0.5" x-text="`R$ ${prod.price.toFixed(2)}`"></span>
+                        </div>
+                        <div class="flex items-center space-x-2 shrink-0 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                            <button @click="changePadariaQty(prod.id, -1)" class="w-6 h-6 bg-slate-800 hover:bg-slate-700 text-white rounded font-bold text-xs flex items-center justify-center">-</button>
+                            <span class="w-5 text-center font-bold text-indigo-400" x-text="getPadariaQty(prod.id)"></span>
+                            <button @click="changePadariaQty(prod.id, 1)" class="w-6 h-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold text-xs flex items-center justify-center">+</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Resumo do Carrinho de Encomenda -->
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-700/80 space-y-3 text-xs">
+                <div class="flex justify-between items-center font-bold">
+                    <span class="text-slate-300">Total Selecionado na Encomenda:</span>
+                    <span class="text-emerald-400 font-mono text-sm" x-text="`R$ ${totalPadariaEncomenda.toFixed(2)}`"></span>
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label class="block text-slate-400 mb-1 font-medium">Data Agendada *</label>
-                        <input type="date" x-model="encDate" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                        <label class="block text-slate-400 mb-1 text-[11px]">Seu Nome *</label>
+                        <input type="text" x-model="encName" placeholder="Ex: João Silva" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
                     </div>
                     <div>
-                        <label class="block text-slate-400 mb-1 font-medium">Horário Desejado *</label>
-                        <input type="time" x-model="encTime" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                        <label class="block text-slate-400 mb-1 text-[11px]">Seu WhatsApp *</label>
+                        <input type="text" x-model="encWhatsapp" placeholder="Ex: 11999999999" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-slate-400 mb-1 text-[11px]">Data Retirada *</label>
+                        <input type="date" x-model="encDate" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1 text-[11px]">Horário Retirada *</label>
+                        <input type="time" x-model="encTime" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-slate-400 mb-1 font-medium">Setor de Atendimento</label>
-                    <select x-model="encSector" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
-                        <option value="Restaurante / Encomendas">Restaurante / Encomendas</option>
-                        <option value="Confeitaria / Bolos">Confeitaria / Bolos</option>
-                        <option value="Salgados & Eventos">Salgados & Eventos</option>
-                        <option value="Bebidas / Bar">Bebidas / Bar</option>
-                    </select>
+                    <label class="block text-slate-400 mb-1 text-[11px]">Observações ou Detalhes Especiais</label>
+                    <input type="text" x-model="encDescription" placeholder="Ex: Fatiar os pães, bolo sem lactose..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
                 </div>
 
-                <div>
-                    <label class="block text-slate-400 mb-1 font-medium">Descreva os Pratos / Itens da Encomenda *</label>
-                    <textarea x-model="encDescription" rows="3" placeholder="Ex: 2x Feijoada Completa, 1x Pudim de Leite Condensado..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"></textarea>
-                </div>
-
-                <button @click="submitEncomenda()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold transition-all shadow-lg flex items-center justify-center space-x-2">
+                <button @click="submitPadariaEncomenda()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl font-bold transition-all shadow flex items-center justify-center space-x-2">
                     <i class="fa-solid fa-paper-plane"></i>
-                    <span>Enviar Encomenda para o Restaurante</span>
+                    <span>Confirmar Encomenda para o Forno</span>
                 </button>
             </div>
         </div>
 
         <!-- Instagram -->
-        <div class="bg-gradient-to-r from-pink-600/20 via-purple-600/20 to-indigo-600/20 p-3 rounded-xl border border-pink-500/30 text-center space-y-1.5">
+        <div class="bg-gradient-to-r from-pink-600/20 via-purple-600/20 to-indigo-600/20 p-2.5 rounded-xl border border-pink-500/30 text-center space-y-1">
             <p class="text-xs font-bold text-white flex items-center justify-center space-x-1.5">
                 <i class="fa-brands fa-instagram text-pink-400 text-sm"></i>
                 <span>Siga-nos no Instagram</span>
             </p>
-            <a href="https://www.instagram.com/compreagoranovidades/" target="_blank" class="inline-flex items-center space-x-1.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow hover:opacity-90 transition-all">
+            <a href="https://www.instagram.com/compreagoranovidades/" target="_blank" class="inline-flex items-center space-x-1.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold px-3 py-1 rounded-lg text-xs shadow hover:opacity-90 transition-all">
                 <i class="fa-brands fa-instagram"></i>
                 <span>@compreagoranovidades</span>
             </a>
@@ -261,13 +351,38 @@
                 notificationText: 'Pedido finalizado com sucesso!',
                 isFinalized: false,
                 previousStatus: null,
+                hasNotifiedFinalized: false, // Flag rigorosa para exibir a notificação APENAS UMA VEZ na transição do Windows
                 
-                // Campos de Encomenda Futura
+                // Chat
+                showChatModal: false,
+                chatMessages: [],
+                newMessage: '',
+
+                // Produtos da Casa / Padaria
+                selectedPadariaCat: 'Todos',
+                padariaCategorias: ['Todos', 'Pães & Broas', 'Bolos & Confeitaria', 'Salgados & Tortas', 'Kits & Festas'],
+                padariaProdutos: [
+                    { id: 101, name: 'Pão Francês Tradicional (kg)', price: 18.90, category: 'Pães & Broas', desc: 'Crocante por fora, macio por dentro.' },
+                    { id: 102, name: 'Pão de Queijo Mineiro (Unidade Grande)', price: 4.50, category: 'Pães & Broas', desc: 'Com queijo canastra legítimo.' },
+                    { id: 103, name: 'Croissant Folhado com Manteiga', price: 9.50, category: 'Pães & Broas', desc: 'Massa folhada artesanal de receita francesa.' },
+                    { id: 104, name: 'Baguete recheada com Presunto e Queijo', price: 16.00, category: 'Pães & Broas', desc: 'Baguete artesanal recheada e assada.' },
+                    { id: 105, name: 'Bolo Caseiro de Fubá com Goiabada', price: 28.00, category: 'Bolos & Confeitaria', desc: 'Bolo inteiro quentinho do forno.' },
+                    { id: 106, name: 'Torta Holandesa Cremosa (Inteira)', price: 75.00, category: 'Bolos & Confeitaria', desc: 'Creme leve com cobertura de chocolate e biscoitos.' },
+                    { id: 107, name: 'Sonho de Creme de Baunilha', price: 6.50, category: 'Bolos & Confeitaria', desc: 'Fofinho e polvilhado com açúcar de confeiteiro.' },
+                    { id: 108, name: 'Carolina Recheada com Doce de Leite (500g)', price: 32.00, category: 'Bolos & Confeitaria', desc: 'Massa choux coberta com chocolate.' },
+                    { id: 109, name: 'Coxinha de Frango com Catupiry (Cento de Salgados)', price: 85.00, category: 'Salgados & Tortas', desc: '100 mini salgados fritos na hora.' },
+                    { id: 110, name: 'Torta Inteira de Frango com Requeijão', price: 68.00, category: 'Salgados & Tortas', desc: 'Massa podre artesanal que derrete na boca.' },
+                    { id: 111, name: 'Empadão de Palmito Especial', price: 62.00, category: 'Salgados & Tortas', desc: 'Recheio cremoso e temperado.' },
+                    { id: 112, name: 'Kit Café da Manhã Família', price: 120.00, category: 'Kits & Festas', desc: 'Pães variados, bolo, frios, geleia e suco de laranja 1L.' },
+                    { id: 113, name: 'Pão de Metro Peito de Peru e Queijo Branco', price: 89.00, category: 'Kits & Festas', desc: 'Serve até 10 pessoas, cortado e decorado.' }
+                ],
+                cartPadaria: {},
+
+                // Campos da encomenda
                 encName: '',
                 encWhatsapp: '',
                 encDate: '',
                 encTime: '',
-                encSector: 'Restaurante / Encomendas',
                 encDescription: '',
 
                 async init() {
@@ -277,30 +392,57 @@
                         this.tableNumber = parseInt(mesaParam);
                     }
 
-                    // Se a URL possuir parâmetro aba=encomenda, abre direto na aba de encomenda
-                    if(urlParams.get('aba') === 'encomenda') {
-                        this.activeTab = 'encomenda';
-                    }
-
                     if(urlParams.get('cliente')) {
                         this.clientName = decodeURIComponent(urlParams.get('cliente'));
                         this.encName = this.clientName;
                     }
                     if(urlParams.get('tempo')) this.satTime = decodeURIComponent(urlParams.get('tempo'));
                     if(urlParams.get('total')) this.total = parseFloat(urlParams.get('total')) || 0;
-                    if(urlParams.get('itens')) {
-                        try { this.items = JSON.parse(decodeURIComponent(urlParams.get('itens'))); } catch(e){}
-                    }
 
-                    // Preencher data padrão para amanhã
+                    // Data padrão amanhã
                     const tomorrow = new Date();
                     tomorrow.setDate(tomorrow.getDate() + 1);
                     this.encDate = tomorrow.toISOString().split('T')[0];
-                    this.encTime = "12:00";
+                    this.encTime = "08:00";
 
-                    // Buscar dados em tempo real do Firebase
+                    // Buscar dados do Firebase
                     await this.fetchTableData();
+                    await this.fetchChatMessages();
+                    
                     setInterval(() => this.fetchTableData(), 3000);
+                    setInterval(() => this.fetchChatMessages(), 2500);
+                },
+
+                get filteredPadariaProducts() {
+                    if(this.selectedPadariaCat === 'Todos') return this.padariaProdutos;
+                    return this.padariaProdutos.filter(p => p.category === this.selectedPadariaCat);
+                },
+
+                getPadariaQty(id) {
+                    return this.cartPadaria[id] || 0;
+                },
+
+                changePadariaQty(id, delta) {
+                    const current = this.cartPadaria[id] || 0;
+                    const next = Math.max(0, current + delta);
+                    if(next === 0) {
+                        delete this.cartPadaria[id];
+                    } else {
+                        this.cartPadaria[id] = next;
+                    }
+                    this.cartPadaria = {...this.cartPadaria};
+                },
+
+                get totalPadariaEncomenda() {
+                    let sum = 0;
+                    Object.keys(this.cartPadaria).forEach(idStr => {
+                        const id = parseInt(idStr);
+                        const prod = this.padariaProdutos.find(p => p.id === id);
+                        if(prod) {
+                            sum += prod.price * this.cartPadaria[idStr];
+                        }
+                    });
+                    return sum;
                 },
 
                 triggerSuccessNotification(msg = 'Pedido finalizado com sucesso!') {
@@ -329,10 +471,13 @@
                                 }
 
                                 if(tableFound) {
-                                    if(this.previousStatus === 'ocupada' && tableFound.status === 'livre') {
-                                        this.triggerSuccessNotification('Pedido finalizado com sucesso!');
+                                    // SÓ EXIBE A MENSAGEM "PEDIDO FINALIZADO COM SUCESSO!" UMA ÚNICA VEZ NA TRANSIÇÃO EXATA QUANDO O SISTEMA WINDOWS FINALIZA A COMANDA!
+                                    if(this.previousStatus === 'ocupada' && tableFound.status === 'livre' && !this.hasNotifiedFinalized) {
+                                        this.hasNotifiedFinalized = true;
                                         this.isFinalized = true;
+                                        this.triggerSuccessNotification('Pedido finalizado com sucesso!');
                                     }
+
                                     this.previousStatus = tableFound.status;
 
                                     if(tableFound.status === 'ocupada') {
@@ -343,13 +488,61 @@
                                         this.satTime = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
                                         this.total = tableFound.total || 0;
                                         this.items = tableFound.items || [];
-                                    } else if(tableFound.status === 'livre' && this.previousStatus === 'livre' && !this.isFinalized) {
+                                    } else if(tableFound.status === 'livre') {
                                         this.isFinalized = true;
                                     }
                                 }
                             }
                         }
                     } catch(e) {}
+                },
+
+                // Chat em tempo real no Firebase
+                async fetchChatMessages() {
+                    try {
+                        const res = await fetch(`https://smartcomanda-df58e-default-rtdb.firebaseio.com/chats/mesa_${this.tableNumber}.json`);
+                        if(res.ok) {
+                            const data = await res.json();
+                            if(data) {
+                                const list = [];
+                                Object.keys(data).forEach(k => {
+                                    list.push({ id: k, ...data[k] });
+                                });
+                                list.sort((a,b) => (a.timestamp || 0) - (b.timestamp || 0));
+                                this.chatMessages = list;
+                            } else {
+                                this.chatMessages = [];
+                            }
+                        }
+                    } catch(e){}
+                },
+
+                async sendChatMessage() {
+                    if(!this.newMessage.trim()) return;
+
+                    const msgData = {
+                        sender: 'cliente',
+                        clientName: this.clientName || 'Cliente Mesa ' + this.tableNumber,
+                        table: this.tableNumber,
+                        text: this.newMessage.trim(),
+                        time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                        timestamp: Date.now()
+                    };
+
+                    this.chatMessages.push(msgData);
+                    const txtToClear = this.newMessage;
+                    this.newMessage = '';
+
+                    try {
+                        await fetch(`https://smartcomanda-df58e-default-rtdb.firebaseio.com/chats/mesa_${this.tableNumber}.json`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(msgData)
+                        });
+                        this.fetchChatMessages();
+                    } catch(e) {
+                        alert('Erro ao enviar mensagem.');
+                    }
                 },
 
                 async submitFeedback() {
@@ -374,25 +567,42 @@
                         this.triggerSuccessNotification('Avaliação enviada com sucesso!');
                         this.feedbackComment = '';
                     } catch(e) {
-                        this.triggerSuccessNotification('Avaliação registrada com sucesso!');
+                        this.triggerSuccessNotification('Avaliação registrada!');
                     }
                 },
 
-                async submitEncomenda() {
-                    if(!this.encName || !this.encWhatsapp || !this.encDescription) {
-                        alert('Por favor, preencha o seu nome, WhatsApp e a descrição dos itens!');
+                async submitPadariaEncomenda() {
+                    if(!this.encName || !this.encWhatsapp) {
+                        alert('Por favor, informe seu Nome e WhatsApp para a encomenda!');
                         return;
                     }
 
+                    const selectedItemsList = [];
+                    Object.keys(this.cartPadaria).forEach(idStr => {
+                        const id = parseInt(idStr);
+                        const prod = this.padariaProdutos.find(p => p.id === id);
+                        if(prod) {
+                            selectedItemsList.push(`${this.cartPadaria[idStr]}x ${prod.name}`);
+                        }
+                    });
+
+                    if(selectedItemsList.length === 0 && !this.encDescription) {
+                        alert('Por favor, selecione pelo menos 1 produto da padaria ou descreva o seu pedido!');
+                        return;
+                    }
+
+                    const itemsText = selectedItemsList.join(', ') + (this.encDescription ? ` (Obs: ${this.encDescription})` : '');
+
                     const encomendaData = {
                         id: Date.now(),
-                        orderCode: 'ENC-' + Math.floor(1000 + Math.random() * 9000),
+                        orderCode: 'PAD-' + Math.floor(1000 + Math.random() * 9000),
                         client: this.encName,
                         whatsapp: this.encWhatsapp,
                         date: this.encDate,
                         time: this.encTime,
-                        sector: this.encSector,
-                        itemsDescription: this.encDescription,
+                        sector: 'Padaria & Confeitaria',
+                        itemsDescription: itemsText,
+                        totalValue: this.totalPadariaEncomenda,
                         createdAt: new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                     };
 
@@ -402,8 +612,9 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(encomendaData)
                         });
-                        this.triggerSuccessNotification('Encomenda enviada com sucesso!');
-                        alert('Sua encomenda foi enviada com sucesso! O restaurante já recebeu o seu agendamento no painel principal.');
+                        this.triggerSuccessNotification('Encomenda da Padaria Enviada!');
+                        alert('Sua encomenda foi enviada para o forno e atendimento da padaria! Agradecemos a preferência.');
+                        this.cartPadaria = {};
                         this.encDescription = '';
                         this.activeTab = 'comanda';
                     } catch(e) {

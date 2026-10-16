@@ -1973,7 +1973,7 @@
                     }
 
                     // Timer ativo
-                    setInterval(() => {
+                    setInterval(() => { if(this.fetchAdminChats) this.fetchAdminChats(); 
                         this.tables.forEach(t => {
                             if (t.status === 'ocupada' && t.satSeconds !== null && t.satSeconds !== undefined) {
                                 t.satSeconds += 1;
