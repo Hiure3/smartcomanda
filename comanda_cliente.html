@@ -36,7 +36,7 @@
             </button>
         </div>
 
-        <!-- ABA 1: AVALIAÇÃO DA EXPÉRIENCIA -->
+        <!-- ABA 1: AVALIAÇÃO DA EXPERIÊNCIA -->
         <div x-show="abaAtiva === 'avaliacao'" class="space-y-4 w-full">
             <div class="space-y-3 w-full text-left">
                 <p class="text-xs text-slate-300">Olá <strong class="text-emerald-400" x-text="clientName"></strong>, confira abaixo os detalhes do seu consumo:</p>
@@ -131,7 +131,7 @@
                     <i class="fa-solid fa-calendar-check text-indigo-400"></i>
                     <span>Faça sua Encomenda para Outro Dia!</span>
                 </p>
-                <p>Programe seu pedido para festas, eventos ou refeições em datas futuras.</p>
+                <p>Programe seu pedido de padaria, confeitaria ou salgados para datas futuras.</p>
             </div>
 
             <div class="space-y-3 bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs">
@@ -143,23 +143,88 @@
                     <label class="block font-semibold text-slate-300 mb-1">WhatsApp de Contato (DDD) *</label>
                     <input type="text" x-model="encomendaWhatsapp" placeholder="5511999999999" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
                 </div>
-                <div>
-                    <label class="block font-semibold text-slate-300 mb-1">Data Desejada para a Encomenda *</label>
-                    <input type="date" x-model="encomendaData" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Data Agendada *</label>
+                        <input type="date" x-model="encomendaData" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Horário *</label>
+                        <input type="time" x-model="encomendaHora" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    </div>
                 </div>
+
+                <!-- CAMPO 1: SELEÇÃO DO SETOR RESPONSÁVEL DA PADARIA -->
                 <div>
-                    <label class="block font-semibold text-slate-300 mb-1">Horário de Retirada / Entrega *</label>
-                    <input type="time" x-model="encomendaHora" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    <label class="block font-semibold text-indigo-300 mb-1 flex items-center space-x-1">
+                        <i class="fa-solid fa-store"></i>
+                        <span>Setor Responsável da Produção *</span>
+                    </label>
+                    <select x-model="encomendaSetor" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                        <option value="🍞 Panificação / Padaria">🍞 Panificação / Padaria</option>
+                        <option value="🍰 Confeitaria / Pastelaria">🍰 Confeitaria / Pastelaria</option>
+                        <option value="🥪 Salgadaria / Cozinha">🥪 Salgadaria / Cozinha</option>
+                        <option value="☕ Copa / Cafetaria">☕ Copa / Cafetaria</option>
+                        <option value="📦 Embalagem & Expedição">📦 Embalagem & Expedição</option>
+                    </select>
                 </div>
+
+                <!-- CAMPO 2 & 3: SELEÇÃO DE PRODUTOS CADASTRADOS DO SISTEMA E VALORES -->
                 <div>
-                    <label class="block font-semibold text-slate-300 mb-1">Descreva os Pratos e Quantidades Desejadas *</label>
-                    <textarea x-model="encomendaItens" rows="3" placeholder="Ex: 2x Baião de Dois Completo, 1x Picanha na Chapa e 10x Padrão de Pão de Queijo para 15 pessoas" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"></textarea>
+                    <label class="block font-semibold text-indigo-300 mb-1 flex items-center space-x-1">
+                        <i class="fa-solid fa-cart-plus"></i>
+                        <span>Selecione Produtos do Cardápio</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <select x-model="selectedProdId" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                            <option value="">-- Selecione o Produto --</option>
+                            <template x-for="p in disponiveisProdutos" :key="p.id">
+                                <option :value="p.id" x-text="`${p.name} - R$ ${parseFloat(p.price).toFixed(2)}`"></option>
+                            </template>
+                        </select>
+                        <input type="number" min="1" x-model.number="selectedProdQty" class="w-16 bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-xs text-center text-white focus:outline-none focus:border-indigo-500" placeholder="Qtd">
+                        <button @click="adicionarProdutoEncomenda()" type="button" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-2 rounded-xl text-xs transition-all">
+                            + Add
+                        </button>
+                    </div>
+                </div>
+
+                <!-- LISTA DE ITENS INSERIDOS NA ENCOMENDA -->
+                <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-2">
+                    <p class="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+                        <span>Itens Adicionados à Encomenda:</span>
+                        <span class="text-indigo-400 font-extrabold" x-text="`Total: R$ ${calcularTotalEncomenda().toFixed(2)}`"></span>
+                    </p>
+                    <template x-if="encomendaItensSelecionados.length > 0">
+                        <div class="space-y-1.5 divide-y divide-slate-800">
+                            <template x-for="(item, idx) in encomendaItensSelecionados" :key="idx">
+                                <div class="pt-1.5 flex justify-between items-center text-xs">
+                                    <div class="flex items-center space-x-1.5">
+                                        <button @click="removerItemEncomenda(idx)" type="button" class="text-red-400 hover:text-red-300">
+                                            <i class="fa-solid fa-circle-minus"></i>
+                                        </button>
+                                        <span class="text-slate-200 font-medium" x-text="`${item.qty}x ${item.name}`"></span>
+                                    </div>
+                                    <span class="text-emerald-400 font-bold" x-text="`R$ ${(item.qty * item.price).toFixed(2)}`"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template x-if="encomendaItensSelecionados.length === 0">
+                        <p class="text-slate-500 text-[11px] italic">Nenhum produto selecionado acima ainda.</p>
+                    </template>
+                </div>
+
+                <!-- OBSERVAÇÕES / DESCRIÇÃO COMPLEMENTAR -->
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Observações / Detalhes Adicionais</label>
+                    <textarea x-model="encomendaObs" rows="2" placeholder="Ex: Sem cebola, embalar para presente, etc." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"></textarea>
                 </div>
             </div>
 
             <button @click="enviarEncomenda()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl text-sm shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center space-x-2">
                 <i class="fa-solid fa-calendar-plus"></i>
-                <span>Confirmar e Enviar Encomenda</span>
+                <span>Confirmar e Enviar Encomenda (R$ <span x-text="calcularTotalEncomenda().toFixed(2)"></span>)</span>
             </button>
         </div>
     </div>
@@ -219,8 +284,25 @@
                 encomendaNome: '',
                 encomendaWhatsapp: '',
                 encomendaData: '',
-                encomendaHora: '',
-                encomendaItens: '',
+                encomendaHora: '12:00',
+                encomendaSetor: '🍞 Panificação / Padaria',
+                encomendaItensSelecionados: [],
+                encomendaObs: '',
+                selectedProdId: '',
+                selectedProdQty: 1,
+
+                disponiveisProdutos: [
+                    { id: 1, name: 'Pão Francês Tradicional (1kg)', price: 16.00 },
+                    { id: 2, name: 'Pão de Queijo Mineiro (10 un)', price: 18.00 },
+                    { id: 3, name: 'Bolo de Cenoura com Chocolate', price: 35.00 },
+                    { id: 4, name: 'Torta Doce de Morango (Inteira)', price: 65.00 },
+                    { id: 5, name: 'Cento de Salgados Fritos Variados', price: 75.00 },
+                    { id: 6, name: 'Cento de Salgados Assados', price: 85.00 },
+                    { id: 7, name: 'Baguete Recheada com Peito de Peru', price: 28.00 },
+                    { id: 8, name: 'Empadão de Frango com Catupiry', price: 42.00 },
+                    { id: 9, name: 'Tábua de Frios Especial Padaria', price: 89.00 },
+                    { id: 10, name: 'Café Garrafa Térmica 1L + Croissants', price: 45.00 }
+                ],
 
                 init() {
                     const urlParams = new URLSearchParams(window.location.search);
@@ -243,6 +325,44 @@
                             } catch(err){}
                         }
                     }
+
+                    // Tentar carregar produtos do cardápio salvos no localStorage
+                    try {
+                        const savedMenu = localStorage.getItem('smartcomanda_menu_v8');
+                        if(savedMenu) {
+                            const parsed = JSON.parse(savedMenu);
+                            if(parsed && parsed.length > 0) {
+                                this.disponiveisProdutos = parsed;
+                            }
+                        }
+                    } catch(e){}
+                },
+
+                adicionarProdutoEncomenda() {
+                    if(!this.selectedProdId) return alert('Selecione um produto!');
+                    const prod = this.disponiveisProdutos.find(p => p.id == this.selectedProdId);
+                    if(!prod) return;
+                    const qty = parseInt(this.selectedProdQty) || 1;
+                    const exist = this.encomendaItensSelecionados.find(i => i.name === prod.name);
+                    if(exist) {
+                        exist.qty += qty;
+                    } else {
+                        this.encomendaItensSelecionados.push({
+                            name: prod.name,
+                            price: parseFloat(prod.price),
+                            qty: qty
+                        });
+                    }
+                    this.selectedProdId = '';
+                    this.selectedProdQty = 1;
+                },
+
+                removerItemEncomenda(index) {
+                    this.encomendaItensSelecionados.splice(index, 1);
+                },
+
+                calcularTotalEncomenda() {
+                    return this.encomendaItensSelecionados.reduce((acc, i) => acc + (i.qty * i.price), 0);
                 },
 
                 async enviarAvaliacao() {
@@ -268,24 +388,35 @@
 
                     this.tipoEnvio = 'avaliacao';
                     this.enviado = true;
-                    // Redirecionar / Abrir em nova aba o Instagram compreagoranovidades após breve confirmação
                     setTimeout(() => {
                         window.open('https://www.instagram.com/compreagoranovidades/', '_blank');
                     }, 1500);
                 },
 
                 async enviarEncomenda() {
-                    if(!this.encomendaNome || !this.encomendaWhatsapp || !this.encomendaData || !this.encomendaItens) {
-                        return alert('Por favor, preencha todos os campos da encomenda.');
+                    if(!this.encomendaNome || !this.encomendaWhatsapp || !this.encomendaData) {
+                        return alert('Por favor, preencha o Nome, WhatsApp e Data da encomenda.');
                     }
+                    if(this.encomendaItensSelecionados.length === 0) {
+                        return alert('Por favor, selecione ao menos um produto para a encomenda.');
+                    }
+
+                    const totalCalc = this.calcularTotalEncomenda();
+                    const itemsDesc = this.encomendaItensSelecionados.map(i => `${i.qty}x ${i.name} (R$ ${(i.qty * i.price).toFixed(2)})`).join('
+') + (this.encomendaObs ? `
+Obs: ${this.encomendaObs}` : '');
 
                     const encomendaPayload = {
                         id: Date.now(),
                         client: this.encomendaNome,
                         whatsapp: this.encomendaWhatsapp,
                         date: this.encomendaData,
-                        time: this.encomendaHora || 'A combinar',
-                        itemsDescription: this.encomendaItens,
+                        time: this.encomendaHora || '12:00',
+                        sector: this.encomendaSetor || '🍞 Panificação / Padaria',
+                        itemsList: this.encomendaItensSelecionados,
+                        itemsDescription: itemsDesc,
+                        totalValue: totalCalc,
+                        status: 'Pendente',
                         createdAt: new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                     };
 
