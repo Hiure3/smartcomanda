@@ -481,6 +481,11 @@
                                     this.previousStatus = tableFound.status;
 
                                     if(tableFound.status === 'ocupada') {
+                                        // Reset total do estado de finalização para o novo cliente
+                                        this.isFinalized = false;
+                                        this.showSuccessNotification = false;
+                                        this.hasNotifiedFinalized = false;
+
                                         this.clientName = tableFound.client || 'Mesa Ocupada';
                                         let totalSec = tableFound.satSeconds || 0;
                                         let m = Math.floor(totalSec / 60);
@@ -489,7 +494,11 @@
                                         this.total = tableFound.total || 0;
                                         this.items = tableFound.items || [];
                                     } else if(tableFound.status === 'livre') {
-                                        this.isFinalized = true;
+                                        if(this.previousStatus === 'ocupada') {
+                                            this.isFinalized = true;
+                                        } else {
+                                            this.isFinalized = false;
+                                        }
                                     }
                                 }
                             }
