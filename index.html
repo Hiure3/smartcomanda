@@ -2198,8 +2198,8 @@
                             baseUrl = cleanUrl.substring(0, cleanUrl.lastIndexOf('/') + 1) + 'comanda_cliente.html';
                         }
                     }
-                    const params = `?mesa=${table.number}&cliente=${encodeURIComponent(table.client || 'Cliente')}&tempo=${encodeURIComponent(formattedSatTime)}&total=${table.total.toFixed(2)}&itens=${encodeURIComponent(JSON.stringify(table.items))}`;
-                    const qrText = baseUrl + params;
+                    // URL FIXA POR MESA (ex: comanda_cliente.html?mesa=2) para que o QR Code seja estático e atualize em tempo real
+                    const qrText = `${baseUrl}?mesa=${table.number}`;
                     
                     this.qrClientName = table.client || 'Cliente';
                     this.qrTableNumber = table.number;
