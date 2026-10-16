@@ -2091,7 +2091,11 @@
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(this.tables)
-                    }).catch(e => {});
+                    }).then(res => {
+                        if(res.ok) console.log("Sincronizado com o Firebase com sucesso!");
+                    }).catch(e => {
+                        console.error("Erro ao sincronizar com o Firebase:", e);
+                    });).catch(e => {});
                 },
 
                 calcTotalPeople() {
