@@ -153,6 +153,14 @@
                         this.tableNumber = parseInt(mesaParam);
                     }
 
+                    // Se houver parâmetros passados diretamente na URL (fallback imediato)
+                    if(urlParams.get('cliente')) this.clientName = decodeURIComponent(urlParams.get('cliente'));
+                    if(urlParams.get('tempo')) this.satTime = decodeURIComponent(urlParams.get('tempo'));
+                    if(urlParams.get('total')) this.total = parseFloat(urlParams.get('total')) || 0;
+                    if(urlParams.get('itens')) {
+                        try { this.items = JSON.parse(decodeURIComponent(urlParams.get('itens'))); } catch(e){}
+                    }
+
                     // Buscar dados em tempo real do Firebase
                     await this.fetchTableData();
                     setInterval(() => this.fetchTableData(), 3000);
@@ -160,7 +168,6 @@
 
                 async fetchTableData() {
                     try {
-                        // Tentar buscar do Firebase tables
                         const res = await fetch('https://smartcomanda-df58e-default-rtdb.firebaseio.com/tables.json');
                         if(res.ok) {
                             const data = await res.json();
@@ -176,7 +183,7 @@
                                     });
                                 }
 
-                                if(tableFound) {
+                                if(tableFound && tableFound.status === 'ocupada') {
                                     this.clientName = tableFound.client || 'Mesa Ocupada';
                                     let totalSec = tableFound.satSeconds || 0;
                                     let m = Math.floor(totalSec / 60);
@@ -184,26 +191,7 @@
                                     this.satTime = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
                                     this.total = tableFound.total || 0;
                                     this.items = tableFound.items || [];
-                                    return;
                                 }
-                            }
-                        }
-                    } catch(e) {}
-
-                    // Fallback para localStorage se houver
-                    try {
-                        const localTables = localStorage.getItem('smartcomanda_tables_v8');
-                        if(localTables) {
-                            const tables = JSON.parse(localTables);
-                            const t = tables.find(x => x.number === this.tableNumber);
-                            if(t) {
-                                this.clientName = t.client || 'Mesa';
-                                let totalSec = t.satSeconds || 0;
-                                let m = Math.floor(totalSec / 60);
-                                let s = totalSec % 60;
-                                this.satTime = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-                                this.total = t.total || 0;
-                                this.items = t.items || [];
                             }
                         }
                     } catch(e) {}

@@ -2085,6 +2085,13 @@
                     localStorage.setItem('smartcomanda_ontime_v8', this.deliveredOnTimeCount);
                     localStorage.setItem('smartcomanda_late_v8', this.deliveredLateCount);
                     this.calcTotalPeople();
+                    
+                    // Sincronizar automaticamente com o Firebase para acesso via celular no QR Code
+                    fetch('https://smartcomanda-df58e-default-rtdb.firebaseio.com/tables.json', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.tables)
+                    }).catch(e => {});
                 },
 
                 calcTotalPeople() {
