@@ -147,6 +147,11 @@
                 <span>Dashboard</span>
                 <span x-show="encomendasDashboard.length > 0 && !dashboardEncomendasRead" class="absolute -top-1 -right-1 bg-pink-500 text-slate-950 text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold animate-bounce" x-text="encomendasDashboard.length"></span>
             </button>
+                        <button x-show="hasAccess('chat')" @click="activeTab = 'chat'; fetchAdminChats()" :class="activeTab === 'chat' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-3.5 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 relative">
+                <i class="fa-solid fa-headset"></i>
+                <span>Atendimento ao Cliente</span>
+                <span x-show="getUnreadChatCount() > 0" class="absolute -top-1 -right-1 bg-cyan-400 text-slate-950 text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold animate-bounce" x-text="getUnreadChatCount()"></span>
+            </button>
             <button x-show="hasAccess('crm')" @click="activeTab = 'crm'" :class="activeTab === 'crm' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-3.5 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 relative">
                 <i class="fa-solid fa-users-rectangle"></i>
                 <span>CRM & Acessos</span>
@@ -662,6 +667,45 @@
 
 
             
+            
+            <!-- PAINEL DE ATENDIMENTO AO CLIENTE NO DASHBOARD -->
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg flex flex-col space-y-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-headset text-cyan-400"></i>
+                            <span>Atendimento ao Cliente & Chat das Mesas em Tempo Real</span>
+                        </h3>
+                        <p class="text-xs text-slate-400">Acompanhe as mensagens recebidas dos clientes e responda diretamente pelo painel.</p>
+                    </div>
+                    <button @click="activeTab = 'chat'; fetchAdminChats()" class="bg-cyan-600 hover:bg-cyan-500 text-white text-xs px-3.5 py-1.5 rounded-xl font-bold flex items-center space-x-1.5 transition-all shadow">
+                        <i class="fa-solid fa-comments"></i>
+                        <span>Abrir Central de Chat</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <template x-for="t in tables" :key="'dash-chat-'+t.number">
+                        <div @click="selectedChatTable = t.number; activeTab = 'chat'; fetchAdminChats()" class="bg-slate-900 border border-slate-700/80 hover:border-cyan-500/50 p-3.5 rounded-xl cursor-pointer transition-all flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-9 h-9 rounded-xl bg-slate-800 font-bold text-xs flex items-center justify-center text-cyan-400 border border-slate-700" x-text="`M${t.number}`"></div>
+                                <div>
+                                    <h4 class="text-xs font-bold text-white" x-text="`Mesa ${t.number}`"></h4>
+                                    <p class="text-[10px] text-slate-400" x-text="t.client || 'Sem cliente'"></p>
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-end space-y-1">
+                                <span class="text-[10px] px-2 py-0.5 rounded-full font-bold" :class="t.status === 'ocupada' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'" x-text="t.status === 'ocupada' ? 'Ocupada' : 'Livre'"></span>
+                                <span class="text-[10px] text-cyan-400 font-bold flex items-center space-x-1">
+                                    <i class="fa-solid fa-comment-dots text-[9px]"></i>
+                                    <span>Conversar</span>
+                                </span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
             <!-- PAINEL EM TEMPO REAL: ENCOMENDAS FUTURAS AGENDADAS -->
             <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg flex flex-col space-y-4">
                 <div class="flex justify-between items-center">
@@ -1918,7 +1962,7 @@
                         try { this.staffDatabase = JSON.parse(savedStaff); } catch(e){}
                     } else {
                         this.staffDatabase = [
-                            { id: 1, name: 'Administrador / Gerente', user: 'admin', pin: '1234', role: 'Gerente', allowedTabs: ['saloon', 'kitchen', 'menu', 'dashboard', 'crm'] },
+                            { id: 1, name: 'Administrador / Gerente', user: 'admin', pin: '1234', role: 'Gerente', allowedTabs: ['saloon', 'kitchen', 'menu', 'dashboard', 'chat', 'crm'] },
                             { id: 2, name: 'Carlos Garçom', user: 'garcom', pin: '1234', role: 'Garçom', allowedTabs: ['saloon'] },
                             { id: 3, name: 'Chef João (Cozinha)', user: 'cozinha', pin: '1234', role: 'Cozinheiro', allowedTabs: ['kitchen'] },
                             { id: 4, name: 'Ana Caixa', user: 'caixa', pin: '1234', role: 'Caixa', allowedTabs: ['saloon', 'crm'] }
@@ -2696,13 +2740,14 @@ exportLiveExcel() {
                         'kitchen': 'Cozinha / KDS',
                         'menu': 'Cardápio',
                         'dashboard': 'Dashboard',
-                        'crm': 'CRM & Acessos'
+                        'crm': 'CRM & Acessos',
+                        'chat': 'Atendimento ao Cliente'
                     };
                     return map[tabKey] || tabKey;
                 },
                 autoSelectPermissions() {
                     if(this.newStaffRole === 'Gerente') {
-                        this.newStaffAllowedTabs = ['saloon', 'kitchen', 'menu', 'dashboard', 'crm'];
+                        this.newStaffAllowedTabs = ['saloon', 'kitchen', 'menu', 'dashboard', 'chat', 'crm'];
                     } else if(this.newStaffRole === 'Garçom') {
                         this.newStaffAllowedTabs = ['saloon'];
                     } else if(this.newStaffRole === 'Cozinheiro') {
