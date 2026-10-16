@@ -142,9 +142,10 @@
                 <i class="fa-solid fa-book-open"></i>
                 <span>Cardápio</span>
             </button>
-            <button x-show="hasAccess('dashboard')" @click="activeTab = 'dashboard'; $nextTick(() => renderDashboardCharts())" :class="activeTab === 'dashboard' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-3.5 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5">
+            <button x-show="hasAccess('dashboard')" @click="activeTab = 'dashboard'; dashboardEncomendasRead = true; $nextTick(() => renderDashboardCharts())" :class="activeTab === 'dashboard' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-3.5 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 relative">
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>Dashboard</span>
+                <span x-show="encomendasDashboard.length > 0 && !dashboardEncomendasRead" class="absolute -top-1 -right-1 bg-pink-500 text-slate-950 text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold animate-bounce" x-text="encomendasDashboard.length"></span>
             </button>
             <button x-show="hasAccess('crm')" @click="activeTab = 'crm'" :class="activeTab === 'crm' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-3.5 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 relative">
                 <i class="fa-solid fa-users-rectangle"></i>
@@ -265,7 +266,13 @@
                                     </template>
                                 </div>
                                 <p class="text-[11px] text-slate-400" x-text="table.status === 'ocupada' ? `👥 ${table.adults} Adultos, ${table.kids} Crianças` : 'Livre'"></p>
-                                <p class="text-base font-bold text-white mt-1" x-text="table.total > 0 ? 'R$ ' + table.total.toFixed(2) : 'R$ 0,00'"></p>
+                                <div class="flex justify-between items-center mt-1">
+                                    <p class="text-base font-bold text-white" x-text="table.total > 0 ? 'R$ ' + table.total.toFixed(2) : 'R$ 0,00'"></p>
+                                    <button @click.stop="showTableQrCode(table)" class="bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/40 px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center space-x-1" title="Ver / Ler QR Code da Mesa">
+                                        <i class="fa-solid fa-qrcode text-xs"></i>
+                                        <span>QR Code</span>
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- Banner Informativo PARCIAL (Laranja) -->
@@ -632,25 +639,27 @@
                 </div>
             </div>
 
-            <!-- BANNER DE NOTIFICAÇÃO EM TEMPO REAL DE NOVA AVALIAÇÃO -->
-            <template x-if="feedbacks.length > 0 && !dashboardFeedbackRead">
-                <div class="bg-amber-500/20 border-2 border-amber-500 rounded-2xl p-4 flex items-center justify-between shadow-lg shadow-amber-500/10 animate-bounce">
+            <!-- BANNER DE NOTIFICAÇÃO EM TEMPO REAL DE NOVA ENCOMENDA -->
+            <template x-if="encomendasDashboard.length > 0 && !dashboardEncomendasRead">
+                <div class="bg-pink-500/20 border-2 border-pink-500 rounded-2xl p-4 flex items-center justify-between shadow-lg shadow-pink-500/10 animate-bounce">
                     <div class="flex items-center space-x-3">
-                        <div class="bg-amber-500 text-slate-950 p-3 rounded-xl font-bold text-lg flex items-center justify-center">
-                            <i class="fa-solid fa-bell"></i>
+                        <div class="bg-pink-500 text-slate-950 p-3 rounded-xl font-bold text-xl flex items-center justify-center">
+                            <i class="fa-solid fa-box-open"></i>
                         </div>
                         <div>
-                            <h4 class="font-bold text-white text-sm">⭐ NOVA AVALIAÇÃO RECEBIDA DE UM CLIENTE!</h4>
-                            <p class="text-xs text-amber-200">
-                                Mesa <strong x-text="feedbacks[0].table"></strong> (<span x-text="feedbacks[0].client"></span>) avaliou com <strong x-text="feedbacks[0].service"></strong>★ em Atendimento e <strong x-text="feedbacks[0].food"></strong>★ em Alimento.
+                            <h4 class="font-bold text-white text-sm">📦 NOVA ENCOMENDA FUTURA RECEBIDA!</h4>
+                            <p class="text-xs text-pink-200">
+                                Há <strong x-text="encomendasDashboard.length"></strong> encomenda(s) agendada(s) aguardando verificação no painel abaixo.
                             </p>
                         </div>
                     </div>
-                    <button @click="dashboardFeedbackRead = true" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow transition-all shrink-0">
+                    <button @click="dashboardEncomendasRead = true" class="bg-pink-600 hover:bg-pink-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow transition-all shrink-0">
                         Marcar como Lido
                     </button>
                 </div>
             </template>
+
+
 
             
             <!-- PAINEL EM TEMPO REAL: ENCOMENDAS FUTURAS AGENDADAS -->
@@ -687,13 +696,13 @@
                                 </tr>
                             </template>
                             <template x-for="enc in encomendasDashboard" :key="enc.id || enc.createdAt">
-                                <tr class="hover:bg-slate-900/40 transition-all">
+                                <tr @click="selectedEncomenda = enc" class="hover:bg-slate-700/50 cursor-pointer transition-all text-slate-200">
                                     <td class="p-3 font-bold text-white flex items-center space-x-2">
                                         <i class="fa-solid fa-user-clock text-indigo-400"></i>
                                         <span x-text="enc.client"></span>
                                     </td>
                                     <td class="p-3 text-emerald-400 font-mono font-bold" x-text="enc.whatsapp"></td>
-                                    <td class="p-3 font-bold text-amber-300" x-text="enc.date"></td>
+                                    <td class="p-3 font-bold text-amber-300" x-text="formatDataPtBr(enc.date)"></td>
                                     <td class="p-3 text-slate-300" x-text="enc.time || 'A combinar'"></td>
                                     <td class="p-3 text-slate-200 italic max-w-xs truncate" x-text="enc.itemsDescription"></td>
                                     <td class="p-3 text-right text-slate-400 text-[10px]" x-text="enc.createdAt"></td>
@@ -703,6 +712,132 @@
                     </table>
                 </div>
             </div>
+            <!-- MODAL DE DETALHES COMPLETOS DA ENCOMENDA SELECIONADA -->
+            <div x-show="selectedEncomenda" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" @click.self="selectedEncomenda = null">
+                <div class="bg-slate-800 border border-slate-700 w-full max-w-lg rounded-2xl p-6 shadow-2xl text-left space-y-5 transform transition-all relative">
+                    <!-- Botão Fechar -->
+                    <button @click="selectedEncomenda = null" class="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-900 p-2 rounded-xl transition-all">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+
+                    <!-- Cabeçalho do Modal -->
+                    <div class="flex items-center space-x-3 pb-3 border-b border-slate-700">
+                        <div class="bg-indigo-600/20 text-indigo-400 p-3 rounded-xl border border-indigo-500/30">
+                            <i class="fa-solid fa-box-open text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                                <span x-text="selectedEncomenda?.client || 'Cliente'"></span>
+                                <span class="text-xs bg-indigo-500/20 text-indigo-300 font-semibold px-2 py-0.5 rounded-full border border-indigo-500/30" x-text="selectedEncomenda?.sector || 'Setor'"></span>
+                            </h3>
+                            <p class="text-xs font-mono font-bold text-emerald-400 mt-0.5" x-text="selectedEncomenda?.orderCode || 'ENCOMENDA: 01'"></p>
+                        </div>
+                    </div>
+
+                    <!-- Informações do Cliente e Agendamento -->
+                    <div class="grid grid-cols-2 gap-3 text-xs bg-slate-900 p-3.5 rounded-xl border border-slate-700/80">
+                        <div>
+                            <span class="text-slate-400 block mb-0.5">Cliente:</span>
+                            <strong class="text-white font-bold" x-text="selectedEncomenda?.client"></strong>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block mb-0.5">WhatsApp / Contato:</span>
+                            <a :href="`https://wa.me/${selectedEncomenda?.whatsapp}`" target="_blank" class="text-emerald-400 font-bold font-mono hover:underline flex items-center space-x-1">
+                                <i class="fa-brands fa-whatsapp"></i>
+                                <span x-text="selectedEncomenda?.whatsapp"></span>
+                            </a>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block mb-0.5">Data Agendada:</span>
+                            <strong class="text-amber-300 font-bold" x-text="formatDataPtBr(selectedEncomenda?.date)"></strong>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block mb-0.5">Horário Previsto:</span>
+                            <strong class="text-slate-200 font-bold" x-text="selectedEncomenda?.time || 'A combinar'"></strong>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block mb-0.5">Setor de Produção:</span>
+                            <strong class="text-indigo-300 font-bold" x-text="selectedEncomenda?.sector || 'Geral'"></strong>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block mb-0.5">Operador Responsável:</span>
+                            <select x-model="selectedEncomenda.operator" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-emerald-400 font-bold focus:outline-none focus:border-indigo-500 w-full mt-0.5">
+                                <option value="Carlos (Atendente / Caixa)">Carlos (Atendente / Caixa)</option>
+                                <option value="Ana (Caixa / Recepção)">Ana (Caixa / Recepção)</option>
+                                <option value="João (Garçom / Balcão)">João (Garçom / Balcão)</option>
+                                <option value="Maria (Gerência)">Maria (Gerência)</option>
+                                <option value="Administrador Sistema">Administrador Sistema</option>
+                            </select>
+                        </div>
+                        <div class="col-span-2">
+                            <span class="text-slate-400 block mb-0.5">Data de Envio:</span>
+                            <strong class="text-slate-400 font-mono" x-text="selectedEncomenda?.createdAt"></strong>
+                        </div>
+                    </div>
+
+                    <!-- Lista Detalhada de Itens -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-bold text-slate-300 flex items-center space-x-1">
+                                <i class="fa-solid fa-list-check text-indigo-400"></i>
+                                <span>Itens Solicitados / Pratos:</span>
+                            </span>
+                            <span class="text-emerald-400 font-extrabold text-sm" x-text="`Total: R$ ${parseFloat(selectedEncomenda?.totalValue || 0).toFixed(2)}`"></span>
+                        </div>
+                        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs text-slate-200 max-h-48 overflow-y-auto space-y-2">
+                            <template x-if="selectedEncomenda?.itemsList && selectedEncomenda.itemsList.length > 0">
+                                <div class="divide-y divide-slate-800">
+                                    <template x-for="it in selectedEncomenda.itemsList" :key="it.name">
+                                        <div class="py-1.5 flex justify-between items-center">
+                                            <span class="font-medium text-white" x-text="`${it.qty}x ${it.name}`"></span>
+                                            <span class="text-emerald-400 font-bold font-mono" x-text="`R$ ${(it.qty * it.price).toFixed(2)}`"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            <template x-if="!selectedEncomenda?.itemsList || selectedEncomenda.itemsList.length === 0">
+                                <p class="text-slate-300 italic whitespace-pre-line" x-text="selectedEncomenda?.itemsDescription || 'Sem detalhes fornecidos'"></p>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Observações -->
+                    <template x-if="selectedEncomenda?.itemsDescription && selectedEncomenda?.itemsDescription.includes('Obs:')">
+                        <div class="bg-amber-500/10 border border-amber-500/30 p-3 rounded-xl text-xs text-amber-200">
+                            <span class="font-bold text-amber-300 block mb-1"><i class="fa-solid fa-comment-dots mr-1"></i>Observações do Pedido:</span>
+                            <span x-text="selectedEncomenda.itemsDescription.split('Obs:')[1]"></span>
+                        </div>
+                    </template>
+
+                    <!-- Ações no Modal -->
+                    <div class="space-y-2 pt-3 border-t border-slate-700 text-xs">
+                        <div class="flex items-center gap-2">
+                            <a :href="`https://wa.me/${selectedEncomenda?.whatsapp}?text=${encodeURIComponent('Olá ' + (selectedEncomenda?.client || '') + ', confirmamos o recebimento da sua encomenda (' + (selectedEncomenda?.orderCode || '') + ') para o dia ' + formatDataPtBr(selectedEncomenda?.date) + '!')}`" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-3 rounded-xl transition-all flex items-center space-x-1.5 flex-1 justify-center">
+                                <i class="fa-brands fa-whatsapp text-sm"></i>
+                                <span>WhatsApp</span>
+                            </a>
+                            <button @click="window.print()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-3 rounded-xl transition-all flex items-center space-x-1.5 justify-center">
+                                <i class="fa-solid fa-print text-sm"></i>
+                                <span>Imprimir</span>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button @click="saveEncomendaChanges(selectedEncomenda)" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-3 rounded-xl transition-all flex items-center space-x-1.5 flex-1 justify-center">
+                                <i class="fa-solid fa-pen-to-square text-sm"></i>
+                                <span>Salvar Alterações</span>
+                            </button>
+                            <button @click="deleteEncomenda(selectedEncomenda)" class="bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 px-3 rounded-xl transition-all flex items-center space-x-1.5 justify-center">
+                                <i class="fa-solid fa-trash-can text-sm"></i>
+                                <span>Excluir Encomenda</span>
+                            </button>
+                            <button @click="selectedEncomenda = null" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-3 rounded-xl transition-all">
+                                Fechar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
 
 
             <!-- PAINEL EM TEMPO REAL: MESAS OCUPADAS (PESSOAS, TEMPO E CONSUMO) -->
@@ -976,15 +1111,24 @@
 
             <!-- Tabela de Clientes Cadastrados (Fidelidade) -->
             <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg flex flex-col space-y-4">
-                <div class="flex justify-between items-center">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                     <h3 class="text-sm font-bold text-white flex items-center space-x-2">
                         <i class="fa-solid fa-address-book text-emerald-400"></i>
                         <span>Base de Clientes Cadastrados & Histórico de Visitas</span>
                     </h3>
-                    <span class="text-xs bg-slate-900 px-3 py-1 rounded-lg text-slate-400 border border-slate-700" x-text="clientsDatabase.length + ' Clientes Cadastrados'"></span>
+                    <div class="flex items-center space-x-2 w-full md:w-auto">
+                        <!-- Campo de busca por nome ou celular -->
+                        <div class="relative flex-1 md:w-64">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                            <input type="text" x-model="clientSearchQuery" placeholder="Buscar por nome ou celular..." class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <!-- Botão Listar Todos os Clientes -->
+                        <button @click="showAllClients = !showAllClients" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow shrink-0" x-text="showAllClients ? 'Mostrar Apenas 3 Últimos' : 'Listar Todos os Clientes'">
+                        </button>
+                    </div>
                 </div>
 
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto max-h-72 overflow-y-auto pr-1">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-700">
                             <tr>
@@ -1004,8 +1148,8 @@
                                     </td>
                                 </tr>
                             </template>
-                            <template x-for="c in clientsDatabase" :key="c.id">
-                                <tr class="hover:bg-slate-900/40 transition-all">
+                            <template x-for="c in getFilteredClients()" :key="c.id">
+                                <tr @click="selectedEncomenda = enc" class="hover:bg-slate-700/50 cursor-pointer transition-all text-slate-200">
                                     <td class="p-3 font-bold text-white flex items-center space-x-2">
                                         <i class="fa-solid fa-user text-emerald-400"></i>
                                         <span x-text="c.name"></span>
@@ -1060,7 +1204,7 @@
                         </thead>
                         <tbody class="divide-y divide-slate-700/60">
                             <template x-for="st in staffDatabase" :key="st.id">
-                                <tr class="hover:bg-slate-900/40 transition-all">
+                                <tr @click="selectedEncomenda = enc" class="hover:bg-slate-700/50 cursor-pointer transition-all text-slate-200">
                                     <td class="p-3 font-bold text-white flex items-center space-x-2">
                                         <i class="fa-solid fa-circle-user text-indigo-400"></i>
                                         <span x-text="st.name"></span>
@@ -1560,7 +1704,52 @@
                 staffDatabase: [],
                 feedbacks: [],
                 encomendasDashboard: [],
+                dashboardEncomendasRead: false,
+                selectedEncomenda: null,
+                
+                deleteEncomenda(enc) {
+                    if(!confirm(`Deseja realmente excluir a encomenda de ${enc.client} (${enc.orderCode || 'Encomenda'})?`)) return;
+                    this.encomendasDashboard = this.encomendasDashboard.filter(e => (e.id && enc.id && e.id !== enc.id) || e.createdAt !== enc.createdAt);
+                    try {
+                        localStorage.setItem('smartcomanda_encomendas_v8', JSON.stringify(this.encomendasDashboard));
+                        // Deletar também do Firebase se houver id numérico / chave
+                        if(enc.firebaseKey) {
+                            fetch(`https://smartcomanda-df58e-default-rtdb.firebaseio.com/encomendas/${enc.firebaseKey}.json`, { method: 'DELETE' });
+                        }
+                    } catch(e) {}
+                    this.selectedEncomenda = null;
+                    alert('Encomenda excluída com sucesso!');
+                },
+                saveEncomendaChanges(enc) {
+                    try {
+                        localStorage.setItem('smartcomanda_encomendas_v8', JSON.stringify(this.encomendasDashboard));
+                    } catch(e) {}
+                    alert('Alterações salvas com sucesso!');
+                },
+
                 clientsDatabase: [],
+                clientSearchQuery: '',
+                showAllClients: false,
+                getFilteredClients() {
+                    let list = this.clientsDatabase;
+                    if (this.clientSearchQuery && this.clientSearchQuery.trim() !== '') {
+                        const q = this.clientSearchQuery.toLowerCase().trim();
+                        list = list.filter(c => (c.name && c.name.toLowerCase().includes(q)) || (c.whatsapp && c.whatsapp.toLowerCase().includes(q)));
+                    }
+                    // Se não houver busca ativa e não estiver mostrando todos, exibir apenas os 3 últimos cadastrados
+                    if (!this.clientSearchQuery || this.clientSearchQuery.trim() === '') {
+                        if (!this.showAllClients) {
+                            // Assumindo que os mais recentes estão no final ou ordenados por id/data
+                            let sorted = [...list].sort((a,b) => b.id - a.id);
+                            return sorted.slice(0, 3);
+                        } else {
+                            let sorted = [...list].sort((a,b) => b.id - a.id);
+                            return sorted;
+                        }
+                    }
+                    let sorted = [...list].sort((a,b) => b.id - a.id);
+                    return sorted;
+                },
                 tempClientBirthday: '',
                 newClientBirthday: '',
                 totalRevenue: 148.90,
@@ -1636,7 +1825,12 @@
                                     let list = [];
                                     Object.keys(data).forEach(k => list.push(data[k]));
                                     list.sort((a,b) => b.id - a.id);
-                                    if(list.length > 0) this.encomendasDashboard = list;
+                                    if(list.length > 0) {
+                                        if(list.length > this.encomendasDashboard.length) {
+                                            this.dashboardEncomendasRead = false;
+                                        }
+                                        this.encomendasDashboard = list;
+                                    }
                                 }
                             }
                         } catch(e){}
@@ -1927,12 +2121,60 @@
 
 
 
+                
+                formatDataPtBr(dataStr) {
+                    if (!dataStr) return '';
+                    if (dataStr.includes('/')) return dataStr;
+                    const partes = dataStr.split('-');
+                    if (partes.length === 3) {
+                        return `${partes[2]}/${partes[1]}/${partes[0]}`;
+                    }
+                    return dataStr;
+                },
+
                 formatTime(sec) {
                     const m = Math.floor(sec / 60);
                     const s = sec % 60;
                     return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
                 },
 
+                showTableQrCode(table) {
+                    let totalSatSec = table.satSeconds || 0;
+                    let m = Math.floor(totalSatSec / 60);
+                    let s = totalSatSec % 60;
+                    let formattedSatTime = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+                    
+                    let baseUrl = '';
+                    let currentUrl = window.location.href;
+                    if (currentUrl.startsWith('file:')) {
+                        let savedGithubBase = localStorage.getItem('smartcomanda_github_base_url');
+                        if (!savedGithubBase) {
+                            savedGithubBase = 'https://seu-usuario.github.io/seu-repositorio/';
+                        }
+                        baseUrl = savedGithubBase + 'comanda_cliente.html';
+                    } else {
+                        let cleanUrl = currentUrl.split('?')[0];
+                        if (cleanUrl.endsWith('index.html')) {
+                            baseUrl = cleanUrl.replace('index.html', 'comanda_cliente.html');
+                        } else if (cleanUrl.endsWith('sistema_comanda.html')) {
+                            baseUrl = cleanUrl.replace('sistema_comanda.html', 'comanda_cliente.html');
+                        } else if (cleanUrl.endsWith('/')) {
+                            baseUrl = cleanUrl + 'comanda_cliente.html';
+                        } else {
+                            baseUrl = cleanUrl.substring(0, cleanUrl.lastIndexOf('/') + 1) + 'comanda_cliente.html';
+                        }
+                    }
+                    const params = `?mesa=${table.number}&cliente=${encodeURIComponent(table.client || 'Cliente')}&tempo=${encodeURIComponent(formattedSatTime)}&total=${table.total.toFixed(2)}&itens=${encodeURIComponent(JSON.stringify(table.items))}`;
+                    const qrText = baseUrl + params;
+                    
+                    this.qrClientName = table.client || 'Cliente';
+                    this.qrTableNumber = table.number;
+                    this.qrSatTime = formattedSatTime;
+                    this.qrTotal = table.total;
+                    this.qrItems = JSON.parse(JSON.stringify(table.items || []));
+                    this.qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=` + encodeURIComponent(qrText);
+                    this.openQrModalFlag = true;
+                },
                 selectTable(t) { 
                     this.selectedTable = t; 
                     if(t.adults === undefined) t.adults = 1;
