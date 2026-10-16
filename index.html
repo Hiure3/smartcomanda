@@ -684,7 +684,8 @@
                                 <th class="p-3">Data Agendada</th>
                                 <th class="p-3">Horário</th>
                                 <th class="p-3">Pratos / Descrição do Pedido</th>
-                                <th class="p-3 text-right">Data de Envio</th>
+                                <th class="p-3">Data de Envio</th>
+                                <th class="p-3 text-right">Ações</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-700/60">
@@ -705,7 +706,13 @@
                                     <td class="p-3 font-bold text-amber-300" x-text="formatDataPtBr(enc.date)"></td>
                                     <td class="p-3 text-slate-300" x-text="enc.time || 'A combinar'"></td>
                                     <td class="p-3 text-slate-200 italic max-w-xs truncate" x-text="enc.itemsDescription"></td>
-                                    <td class="p-3 text-right text-slate-400 text-[10px]" x-text="enc.createdAt"></td>
+                                    <td class="p-3 text-slate-400 text-[10px]" x-text="enc.createdAt"></td>
+                                    <td class="p-3 text-right">
+                                        <button @click.stop="deleteEncomenda(enc)" class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/40 p-2 rounded-xl text-xs font-bold transition-all shadow flex items-center justify-center space-x-1 ml-auto" title="Excluir Definitivamente esta Encomenda">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                            <span class="hidden md:inline">Excluir</span>
+                                        </button>
+                                    </td>
                                 </tr>
                             </template>
                         </tbody>
