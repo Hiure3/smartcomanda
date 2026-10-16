@@ -229,7 +229,9 @@
                     this.satTime = urlParams.get('tempo') || urlParams.get('Tempo') || '00:00';
                     this.total = urlParams.get('total') || urlParams.get('Total') || '0.00';
                     
-                    this.encomendaNome = this.clientName !== 'Geral' ? this.clientName : '';
+                    this.encomendaNome = (this.clientName && this.clientName !== 'Geral') ? this.clientName : '';
+                    const urlPhone = urlParams.get('whatsapp') || urlParams.get('telefone') || urlParams.get('phone') || '';
+                    if (urlPhone) this.encomendaWhatsapp = urlPhone;
 
                     const itemsRaw = urlParams.get('itens') || urlParams.get('items');
                     if (itemsRaw) {
