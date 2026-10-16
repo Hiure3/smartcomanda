@@ -1714,18 +1714,43 @@
                 dashboardEncomendasRead: false,
                 selectedEncomenda: null,
                 
-                deleteEncomenda(enc) {
-                    if(!confirm(`Deseja realmente excluir a encomenda de ${enc.client} (${enc.orderCode || 'Encomenda'})?`)) return;
-                    this.encomendasDashboard = this.encomendasDashboard.filter(e => (e.id && enc.id && e.id !== enc.id) || e.createdAt !== enc.createdAt);
+                async deleteEncomenda(enc) {
+                    if(!confirm(`Deseja realmente excluir definitivamente a encomenda de ${enc.client} (${enc.orderCode || 'Encomenda'})?`)) return;
+                    
+                    // Remover do array local imediatamente
+                    this.encomendasDashboard = this.encomendasDashboard.filter(e => {
+                        if(enc.firebaseKey && e.firebaseKey) return e.firebaseKey !== enc.firebaseKey;
+                        if(e.id && enc.id) return e.id !== enc.id;
+                        return e.createdAt !== enc.createdAt;
+                    });
+
                     try {
                         localStorage.setItem('smartcomanda_encomendas_v8', JSON.stringify(this.encomendasDashboard));
-                        // Deletar também do Firebase se houver id numérico / chave
+                        
+                        // Deletar definitivamente do Firebase Realtime Database
                         if(enc.firebaseKey) {
-                            fetch(`https://smartcomanda-df58e-default-rtdb.firebaseio.com/encomendas/${enc.firebaseKey}.json`, { method: 'DELETE' });
+                            await fetch(`https://smartcomanda-df58e-default-rtdb.firebaseio.com/encomendas/${enc.firebaseKey}.json`, { method: 'DELETE' });
+                        } else {
+                            // Se não tiver firebaseKey explícita, buscar a chave correspondente no Firebase
+                            const res = await fetch('https://smartcomanda-df58e-default-rtdb.firebaseio.com/encomendas.json');
+                            if(res.ok) {
+                                const data = await res.json();
+                                if(data) {
+                                    for(let k in data) {
+                                        let item = data[k];
+                                        if(item && (item.createdAt === enc.createdAt || (item.client === enc.client && item.date === enc.date))) {
+                                            await fetch(`https://smartcomanda-df58e-default-rtdb.firebaseio.com/encomendas/${k}.json`, { method: 'DELETE' });
+                                        }
+                                    }
+                                }
+                            }
                         }
-                    } catch(e) {}
+                    } catch(e) {
+                        console.error("Erro ao excluir do Firebase:", e);
+                    }
+
                     this.selectedEncomenda = null;
-                    alert('Encomenda excluída com sucesso!');
+                    alert('Encomenda excluída definitivamente do sistema e do banco de dados!');
                 },
                 saveEncomendaChanges(enc) {
                     try {
@@ -1830,7 +1855,13 @@
                                 const data = await res.json();
                                 if(data) {
                                     let list = [];
-                                    Object.keys(data).forEach(k => list.push(data[k]));
+                                    Object.keys(data).forEach(k => {
+                                        let item = data[k];
+                                        if(item) {
+                                            item.firebaseKey = k;
+                                            list.push(item);
+                                        }
+                                    });
                                     list.sort((a,b) => b.id - a.id);
                                     if(list.length > 0) {
                                         if(list.length > this.encomendasDashboard.length) {
@@ -1838,15 +1869,11 @@
                                         }
                                         this.encomendasDashboard = list;
                                     }
+                                } else {
+                                    this.encomendasDashboard = [];
                                 }
                             }
                         } catch(e){}
-                        if(this.encomendasDashboard.length === 0) {
-                            try {
-                                const localEnc = localStorage.getItem('smartcomanda_encomendas_v8');
-                                if(localEnc) this.encomendasDashboard = JSON.parse(localEnc);
-                            } catch(e){}
-                        }
                     };
                     loadEncomendasSystem();
                     setInterval(loadEncomendasSystem, 4000);
