@@ -133,6 +133,11 @@
                     <i class="fa-solid fa-bell"></i>
                 </span>
             </button>
+            <button x-show="hasAccess('atendimento')" @click="activeTab = 'atendimento'; $nextTick(() => atdTabOpened())" :class="activeTab === 'atendimento' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-3.5 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 relative">
+                <i class="fa-solid fa-headset"></i>
+                <span>Atendimento</span>
+                <span x-show="atdTotalUnread > 0" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] min-w-[20px] h-5 px-1 rounded-full flex items-center justify-center font-bold animate-bounce" x-text="atdTotalUnread"></span>
+            </button>
             <button x-show="hasAccess('kitchen')" @click="activeTab = 'kitchen'; $nextTick(() => renderKitchenCharts())" :class="activeTab === 'kitchen' ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-3.5 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 relative">
                 <i class="fa-solid fa-fire-burner"></i>
                 <span>Cozinha (KDS)</span>
@@ -146,11 +151,6 @@
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>Dashboard</span>
                 <span x-show="encomendasDashboard.length > 0 && !dashboardEncomendasRead" class="absolute -top-1 -right-1 bg-pink-500 text-slate-950 text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold animate-bounce" x-text="encomendasDashboard.length"></span>
-            </button>
-                        <button x-show="hasAccess('chat')" @click="activeTab = 'chat'; fetchAdminChats()" :class="activeTab === 'chat' ? 'bg-cyan-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-3.5 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 relative">
-                <i class="fa-solid fa-headset"></i>
-                <span>Atendimento ao Cliente</span>
-                <span x-show="getUnreadChatCount() > 0" class="absolute -top-1 -right-1 bg-cyan-400 text-slate-950 text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold animate-bounce" x-text="getUnreadChatCount()"></span>
             </button>
             <button x-show="hasAccess('crm')" @click="activeTab = 'crm'" :class="activeTab === 'crm' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-3.5 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 relative">
                 <i class="fa-solid fa-users-rectangle"></i>
@@ -189,100 +189,6 @@
 
     <!-- CORPO PRINCIPAL -->
     <main class="flex-1 overflow-hidden relative">
-
-        
-        <!-- TELA: ATENDIMENTO AO CLIENTE & CHAT EM TEMPO REAL -->
-        <div x-show="activeTab === 'chat'" class="h-[calc(100vh-73px)] flex p-6 gap-6 bg-slate-950 overflow-hidden">
-            <!-- Lista de Mesas para Chat -->
-            <div class="w-80 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col shadow-xl">
-                <div class="pb-3 border-b border-slate-800">
-                    <h3 class="font-bold text-sm text-white flex items-center space-x-2">
-                        <i class="fa-solid fa-headset text-cyan-400"></i>
-                        <span>Mesas Atendidas (Chat)</span>
-                    </h3>
-                    <p class="text-[11px] text-slate-400">Selecione uma mesa para ver e responder às mensagens.</p>
-                </div>
-                <div class="flex-1 overflow-y-auto py-3 space-y-2">
-                    <template x-for="t in tables" :key="'chat-list-'+t.number">
-                        <div @click="selectedChatTable = t.number; fetchAdminChats()" 
-                             :class="selectedChatTable === t.number ? 'bg-cyan-950/60 border-cyan-500/60 shadow-lg' : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'"
-                             class="p-3 rounded-xl border cursor-pointer transition-all flex justify-between items-center relative">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-9 h-9 rounded-xl bg-slate-900 font-bold text-xs flex items-center justify-center text-cyan-400 border border-slate-800" x-text="`M${t.number}`"></div>
-                                <div>
-                                    <h4 class="text-xs font-bold text-white" x-text="`Mesa ${t.number}`"></h4>
-                                    <p class="text-[10px] text-slate-400 truncate max-w-[120px]" x-text="t.client || 'Sem cliente'"></p>
-                                </div>
-                            </div>
-                            <div class="flex flex-col items-end space-y-1">
-                                <span class="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase" :class="t.status === 'ocupada' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'" x-text="t.status"></span>
-                                <span x-show="getUnreadCountForTable(t.number) > 0" class="bg-cyan-400 text-slate-950 font-bold text-[9px] px-1.5 py-0.5 rounded-full animate-bounce" x-text="getUnreadCountForTable(t.number)"></span>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-            </div>
-
-            <!-- Janela de Conversa Ativa -->
-            <div class="flex-1 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col shadow-xl">
-                <template x-if="selectedChatTable">
-                    <div class="h-full flex flex-col">
-                        <!-- Header Chat Ativo -->
-                        <div class="flex justify-between items-center pb-3.5 border-b border-slate-800">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 rounded-xl bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 font-bold flex items-center justify-center">
-                                    <i class="fa-solid fa-comments text-lg"></i>
-                                </div>
-                                <div>
-                                    <h3 class="font-bold text-base text-white" x-text="`Atendimento Mesa ${selectedChatTable}`"></h3>
-                                    <p class="text-xs text-slate-400" x-text="getTableClientName(selectedChatTable)"></p>
-                                </div>
-                            </div>
-                            <span class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full font-bold flex items-center space-x-1.5">
-                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                <span>Conectado em Tempo Real</span>
-                            </span>
-                        </div>
-
-                        <!-- Lista de Mensagens -->
-                        <div id="adminChatBox" class="flex-1 overflow-y-auto py-4 space-y-3 px-2">
-                            <template x-if="!adminChatMessages[selectedChatTable] || adminChatMessages[selectedChatTable].length === 0">
-                                <div class="text-center py-16 text-slate-500 space-y-2">
-                                    <i class="fa-solid fa-comment-dots text-4xl opacity-40"></i>
-                                    <p class="text-sm font-medium">Nenhuma mensagem trocada com a Mesa <span x-text="selectedChatTable"></span> ainda.</p>
-                                    <p class="text-xs">Envie uma mensagem abaixo para iniciar o atendimento.</p>
-                                </div>
-                            </template>
-                            <template x-for="msg in (adminChatMessages[selectedChatTable] || [])" :key="msg.id || msg.timestamp">
-                                <div class="flex flex-col" :class="msg.sender === 'atendente' ? 'items-end' : 'items-start'">
-                                    <div class="max-w-[70%] rounded-2xl px-4 py-2.5 shadow" 
-                                         :class="msg.sender === 'atendente' ? 'bg-cyan-600 text-white rounded-br-none' : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-none'">
-                                        <p class="text-xs leading-relaxed" x-text="msg.text"></p>
-                                        <span class="text-[9px] opacity-70 block text-right mt-1 font-mono" x-text="msg.time"></span>
-                                    </div>
-                                    <span class="text-[9px] text-slate-500 mt-0.5 px-1 font-semibold" x-text="msg.sender === 'atendente' ? 'Equipe / Você' : 'Cliente'"></span>
-                                </div>
-                            </template>
-                        </div>
-
-                        <!-- Input de Envio de Mensagem -->
-                        <div class="pt-3 border-t border-slate-800 flex items-center space-x-2">
-                            <input type="text" x-model="newAdminMessage" @keydown.enter="sendAdminMessage()" placeholder="Digite sua resposta para o cliente..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-cyan-500">
-                            <button @click="sendAdminMessage()" class="bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-3 rounded-xl text-xs font-bold transition-all shadow flex items-center space-x-2">
-                                <i class="fa-solid fa-paper-plane"></i>
-                                <span>Enviar Resposta</span>
-                            </button>
-                        </div>
-                    </div>
-                </template>
-                <template x-if="!selectedChatTable">
-                    <div class="h-full flex flex-col items-center justify-center text-center text-slate-500 space-y-2">
-                        <i class="fa-solid fa-hand-pointer text-4xl text-slate-600 animate-bounce"></i>
-                        <p class="text-sm font-medium">Selecione uma mesa na barra lateral para iniciar o atendimento ao cliente.</p>
-                    </div>
-                </template>
-            </div>
-        </div>
 
         <!-- TELA 1: SALÃO / COMANDAS -->
         <div x-show="activeTab === 'saloon'" class="h-full flex p-6 gap-6 overflow-y-auto">
@@ -533,6 +439,201 @@
             </div>
         </div>
 
+        <!-- TELA: ATENDIMENTO AO CLIENTE (chat em tempo real com o app do cliente que escaneou o QR Code da mesa) -->
+        <div x-show="activeTab === 'atendimento'" class="h-full flex gap-4 p-4 overflow-hidden">
+
+            <!-- COLUNA 1: LISTA DE CONVERSAS -->
+            <aside class="w-80 shrink-0 bg-slate-800 border border-slate-700 rounded-2xl flex flex-col min-h-0 overflow-hidden">
+                <div class="p-4 border-b border-slate-700 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h2 class="font-bold text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-headset text-cyan-400"></i>
+                            <span>Atendimento</span>
+                        </h2>
+                        <span class="text-[10px] font-bold px-2 py-1 rounded-full border flex items-center space-x-1"
+                              :class="atdMode === 'live' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : (atdMode === 'offline' ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30')">
+                            <span class="w-1.5 h-1.5 rounded-full" :class="atdMode === 'live' ? 'bg-emerald-400 animate-pulse' : (atdMode === 'offline' ? 'bg-red-400' : 'bg-amber-400')"></span>
+                            <span x-text="atdMode === 'live' ? 'Tempo real' : (atdMode === 'offline' ? 'Sem conexão' : (atdMode === 'polling' ? 'Sincronizando' : 'Conectando...'))"></span>
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1 bg-slate-900 p-1 rounded-xl border border-slate-700 text-[11px]">
+                        <button @click="atdFilter = 'todas'" :class="atdFilter === 'todas' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="py-1.5 rounded-lg transition-all">Todas</button>
+                        <button @click="atdFilter = 'sem_resposta'" :class="atdFilter === 'sem_resposta' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="py-1.5 rounded-lg transition-all">Sem resposta</button>
+                        <button @click="atdFilter = 'online'" :class="atdFilter === 'online' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="py-1.5 rounded-lg transition-all">No app agora</button>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto divide-y divide-slate-700/60">
+                    <template x-if="atdConversations.length === 0">
+                        <div class="p-8 text-center text-slate-500 space-y-2">
+                            <i class="fa-solid fa-inbox text-3xl opacity-50"></i>
+                            <p class="text-xs">Nenhuma conversa neste filtro.</p>
+                            <p class="text-[11px]">Mesas ocupadas aparecem aqui assim que o cliente escaneia o QR Code.</p>
+                        </div>
+                    </template>
+                    <template x-for="c in atdConversations" :key="c.mesa">
+                        <button @click="atdSelect(c.mesa)" class="w-full text-left p-3.5 flex items-start space-x-3 transition-all border-l-4"
+                                :class="atdSelected === c.mesa ? 'bg-cyan-600/15 border-cyan-500' : 'hover:bg-slate-700/40 border-transparent'">
+                            <div class="relative shrink-0">
+                                <div class="w-10 h-10 rounded-xl bg-slate-900 border border-slate-600 flex items-center justify-center font-black text-white text-sm" x-text="c.mesa"></div>
+                                <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-800" :class="c.online ? 'bg-emerald-400' : 'bg-slate-600'" :title="c.online ? 'Acompanhando no app agora' : 'Fora do app'"></span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between space-x-2">
+                                    <span class="font-bold text-sm text-white truncate" x-text="c.client"></span>
+                                    <span class="text-[10px] text-slate-500 shrink-0" x-text="c.last ? c.last.time : ''"></span>
+                                </div>
+                                <div class="flex items-center justify-between space-x-2 mt-0.5">
+                                    <p class="text-xs truncate" :class="c.typing ? 'text-cyan-400 italic' : (c.unread > 0 ? 'text-white font-semibold' : 'text-slate-400')">
+                                        <template x-if="c.urgent"><i class="fa-solid fa-bell text-amber-400 mr-1"></i></template>
+                                        <span x-text="c.typing ? 'digitando...' : (c.last ? ((c.last.sender === 'cliente' ? '' : 'Você: ') + c.last.text) : 'Mesa ocupada • sem mensagens')"></span>
+                                    </p>
+                                    <span x-show="c.unread > 0" class="bg-red-500 text-white text-[10px] min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center font-bold shrink-0" x-text="c.unread"></span>
+                                </div>
+                            </div>
+                        </button>
+                    </template>
+                </div>
+            </aside>
+
+            <!-- COLUNA 2: CONVERSA -->
+            <section class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-2xl flex flex-col min-h-0 overflow-hidden">
+                <template x-if="!atdSelectedConv">
+                    <div class="flex-1 flex flex-col items-center justify-center text-slate-500 space-y-3 p-8 text-center">
+                        <i class="fa-solid fa-comments text-5xl opacity-40"></i>
+                        <p class="font-semibold text-slate-300">Selecione uma conversa</p>
+                        <p class="text-xs max-w-xs">Quando um cliente escanear o QR Code da mesa e enviar uma mensagem ou um chamado, ele aparece aqui em tempo real.</p>
+                    </div>
+                </template>
+
+                <template x-if="atdSelectedConv">
+                    <div class="flex-1 flex flex-col min-h-0">
+                        <!-- Cabeçalho da conversa -->
+                        <div class="px-5 py-3.5 border-b border-slate-700 flex items-center justify-between bg-slate-900/40">
+                            <div class="flex items-center space-x-3 min-w-0">
+                                <div class="w-10 h-10 rounded-xl bg-cyan-600 text-white font-black flex items-center justify-center shrink-0" x-text="atdSelectedConv.mesa"></div>
+                                <div class="min-w-0">
+                                    <h3 class="font-bold text-white truncate" x-text="atdSelectedConv.client"></h3>
+                                    <p class="text-[11px] flex items-center space-x-1.5" :class="atdSelectedConv.online ? 'text-emerald-400' : 'text-slate-500'">
+                                        <span class="w-1.5 h-1.5 rounded-full" :class="atdSelectedConv.online ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'"></span>
+                                        <span x-text="atdSelectedConv.typing ? 'digitando...' : (atdSelectedConv.online ? 'Acompanhando a comanda agora' : 'Cliente fora do app no momento')"></span>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 shrink-0">
+                                <template x-if="atdTable && atdTable.whatsapp">
+                                    <a :href="'https://wa.me/' + String(atdTable.whatsapp).replace(/\D/g, '')" target="_blank" class="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all">
+                                        <i class="fa-brands fa-whatsapp"></i><span>WhatsApp</span>
+                                    </a>
+                                </template>
+                                <template x-if="atdTable">
+                                    <button @click="activeTab = 'saloon'; selectTable(atdTable)" class="bg-slate-900 hover:bg-slate-700 text-slate-200 border border-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all">
+                                        <i class="fa-solid fa-chair"></i><span>Ver mesa</span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Mensagens -->
+                        <div id="atdThreadBox" class="flex-1 min-h-0 overflow-y-auto p-5 space-y-3 bg-slate-950/60">
+                            <template x-if="atdThread.length === 0">
+                                <div class="text-center py-10 text-slate-500 space-y-2">
+                                    <i class="fa-solid fa-message text-3xl opacity-50"></i>
+                                    <p class="text-xs">Nenhuma mensagem ainda. Envie a primeira mensagem para o cliente.</p>
+                                </div>
+                            </template>
+                            <template x-for="m in atdThread" :key="m.id">
+                                <div class="flex flex-col" :class="m.sender === 'cliente' ? 'items-start' : 'items-end'">
+                                    <div class="max-w-[75%] rounded-2xl px-3.5 py-2 text-sm"
+                                         :class="m.sender === 'cliente' ? (m.kind === 'chamado' ? 'bg-amber-500/15 text-amber-100 border border-amber-500/40 rounded-bl-none' : 'bg-slate-800 text-slate-100 border border-slate-700 rounded-bl-none') : 'bg-cyan-600 text-white rounded-br-none'">
+                                        <template x-if="m.kind === 'chamado'">
+                                            <div class="text-[10px] font-black uppercase tracking-wider text-amber-300 mb-0.5 flex items-center space-x-1">
+                                                <i class="fa-solid fa-bell"></i><span>Chamado do cliente</span>
+                                            </div>
+                                        </template>
+                                        <p class="whitespace-pre-wrap break-words leading-relaxed" x-text="m.text"></p>
+                                        <div class="flex items-center justify-end space-x-1 text-[10px] opacity-70 mt-1">
+                                            <span x-text="m.time"></span>
+                                            <template x-if="m.sender !== 'cliente'">
+                                                <i class="fa-solid" :class="m.failed ? 'fa-triangle-exclamation text-amber-300' : (m.pending ? 'fa-clock' : (atdIsReadByClient(m) ? 'fa-check-double text-sky-200' : 'fa-check'))"></i>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <button x-show="m.failed" @click="atdPost(m.localId)" class="text-[11px] text-amber-400 hover:text-amber-300 underline mt-0.5 px-1">Falha ao enviar. Clique para reenviar</button>
+                                    <span class="text-[10px] text-slate-500 mt-0.5 px-1" x-text="m.sender === 'cliente' ? (m.clientName || 'Cliente') : (m.agent || 'Atendente')"></span>
+                                </div>
+                            </template>
+                            <div x-show="atdSelectedConv.typing" class="text-[11px] text-cyan-400 italic">Cliente digitando...</div>
+                        </div>
+
+                        <!-- Respostas rápidas + campo de envio -->
+                        <div class="border-t border-slate-700 bg-slate-900/40 p-3 space-y-2">
+                            <div class="flex gap-1.5 overflow-x-auto pb-1">
+                                <template x-for="qr in atdQuickReplies" :key="qr">
+                                    <button @click="atdSend(qr)" class="shrink-0 text-[11px] bg-slate-900 hover:bg-cyan-600/20 border border-slate-700 hover:border-cyan-500/50 text-slate-300 hover:text-white px-3 py-1.5 rounded-full transition-all" x-text="qr"></button>
+                                </template>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="text" x-model="atdDraft" @input="atdOnDraftInput()" @keydown.enter="atdSend()" placeholder="Responder ao cliente..." class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500">
+                                <button @click="atdSend()" :disabled="!atdDraft.trim()" class="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center space-x-2 transition-all">
+                                    <i class="fa-solid fa-paper-plane"></i><span>Enviar</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </section>
+
+            <!-- COLUNA 3: ESPELHO DO QUE O CLIENTE ESTÁ VENDO -->
+            <aside class="w-80 shrink-0 hidden xl:flex flex-col bg-slate-800 border border-slate-700 rounded-2xl min-h-0 overflow-hidden">
+                <div class="p-4 border-b border-slate-700">
+                    <h3 class="font-bold text-white text-sm flex items-center space-x-2">
+                        <i class="fa-solid fa-mobile-screen text-cyan-400"></i>
+                        <span>O que o cliente está vendo</span>
+                    </h3>
+                    <p class="text-[11px] text-slate-400 mt-1">Espelho em tempo real da comanda no celular do cliente.</p>
+                </div>
+                <template x-if="!atdTable">
+                    <div class="flex-1 flex items-center justify-center p-6 text-center text-xs text-slate-500">Selecione uma conversa para ver a comanda da mesa.</div>
+                </template>
+                <template x-if="atdTable">
+                    <div class="flex-1 overflow-y-auto p-4 space-y-3">
+                        <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-700/80 space-y-2 text-xs">
+                            <div class="flex justify-between"><span class="text-slate-400">Mesa</span><strong class="text-white" x-text="atdTable.number"></strong></div>
+                            <div class="flex justify-between"><span class="text-slate-400">Situação</span>
+                                <strong :class="atdTable.status === 'ocupada' ? 'text-amber-400' : 'text-emerald-400'" x-text="atdTable.status === 'ocupada' ? 'Ocupada' : 'Livre / finalizada'"></strong>
+                            </div>
+                            <div class="flex justify-between"><span class="text-slate-400">Cliente</span><strong class="text-white truncate max-w-[150px]" x-text="atdTable.client || '—'"></strong></div>
+                            <div class="flex justify-between"><span class="text-slate-400">Tempo na mesa</span><strong class="text-indigo-400 font-mono" x-text="atdTable.satSeconds !== null && atdTable.satSeconds !== undefined ? formatTime(atdTable.satSeconds) : '00:00'"></strong></div>
+                            <div class="flex justify-between pt-2 border-t border-slate-800"><span class="text-slate-300 font-bold">Total da conta</span><strong class="text-emerald-400 text-sm" x-text="'R$ ' + Number(atdTable.total || 0).toFixed(2)"></strong></div>
+                        </div>
+                        <div class="space-y-2">
+                            <h4 class="text-xs font-bold text-slate-300 flex items-center space-x-1.5"><i class="fa-solid fa-list-check text-indigo-400"></i><span>Itens da comanda</span></h4>
+                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2 text-xs">
+                                <template x-if="!atdTable.items || atdTable.items.length === 0">
+                                    <p class="text-slate-500 text-center py-3 italic">Nenhum item lançado.</p>
+                                </template>
+                                <template x-for="item in (atdTable.items || [])" :key="item.id || item.name">
+                                    <div class="flex justify-between items-start py-1.5 border-b border-slate-900 last:border-0 space-x-2">
+                                        <div class="min-w-0">
+                                            <span class="font-medium text-white block" x-text="item.qty + 'x ' + item.name"></span>
+                                            <span class="text-[10px] px-1.5 py-0.5 rounded font-bold w-fit mt-0.5 inline-block"
+                                                  :class="{
+                                                      'bg-amber-500/10 text-amber-400': (item.status || 'Pendente') === 'Pendente',
+                                                      'bg-blue-500/10 text-blue-400': item.status === 'Em Preparo',
+                                                      'bg-emerald-500/20 text-emerald-400': item.status === 'Pronto'
+                                                  }" x-text="item.status || 'Pendente'"></span>
+                                        </div>
+                                        <span class="text-emerald-400 font-bold font-mono shrink-0" x-text="'R$ ' + (item.qty * item.price).toFixed(2)"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </aside>
+        </div>
+
         <!-- TELA 2: COZINHA (KDS) -->
         <div x-show="activeTab === 'kitchen'" class="h-full flex flex-col p-6 bg-slate-950 overflow-y-auto space-y-6">
             <div class="flex justify-between items-center">
@@ -761,45 +862,6 @@
 
 
             
-            
-            <!-- PAINEL DE ATENDIMENTO AO CLIENTE NO DASHBOARD -->
-            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg flex flex-col space-y-4">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h3 class="text-sm font-bold text-white flex items-center space-x-2">
-                            <i class="fa-solid fa-headset text-cyan-400"></i>
-                            <span>Atendimento ao Cliente & Chat das Mesas em Tempo Real</span>
-                        </h3>
-                        <p class="text-xs text-slate-400">Acompanhe as mensagens recebidas dos clientes e responda diretamente pelo painel.</p>
-                    </div>
-                    <button @click="activeTab = 'chat'; fetchAdminChats()" class="bg-cyan-600 hover:bg-cyan-500 text-white text-xs px-3.5 py-1.5 rounded-xl font-bold flex items-center space-x-1.5 transition-all shadow">
-                        <i class="fa-solid fa-comments"></i>
-                        <span>Abrir Central de Chat</span>
-                    </button>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <template x-for="t in tables" :key="'dash-chat-'+t.number">
-                        <div @click="selectedChatTable = t.number; activeTab = 'chat'; fetchAdminChats()" class="bg-slate-900 border border-slate-700/80 hover:border-cyan-500/50 p-3.5 rounded-xl cursor-pointer transition-all flex items-center justify-between">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-9 h-9 rounded-xl bg-slate-800 font-bold text-xs flex items-center justify-center text-cyan-400 border border-slate-700" x-text="`M${t.number}`"></div>
-                                <div>
-                                    <h4 class="text-xs font-bold text-white" x-text="`Mesa ${t.number}`"></h4>
-                                    <p class="text-[10px] text-slate-400" x-text="t.client || 'Sem cliente'"></p>
-                                </div>
-                            </div>
-                            <div class="flex flex-col items-end space-y-1">
-                                <span class="text-[10px] px-2 py-0.5 rounded-full font-bold" :class="t.status === 'ocupada' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'" x-text="t.status === 'ocupada' ? 'Ocupada' : 'Livre'"></span>
-                                <span class="text-[10px] text-cyan-400 font-bold flex items-center space-x-1">
-                                    <i class="fa-solid fa-comment-dots text-[9px]"></i>
-                                    <span>Conversar</span>
-                                </span>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-            </div>
-
             <!-- PAINEL EM TEMPO REAL: ENCOMENDAS FUTURAS AGENDADAS -->
             <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg flex flex-col space-y-4">
                 <div class="flex justify-between items-center">
@@ -1439,6 +1501,10 @@
                             <span class="text-white">Dashboard</span>
                         </label>
                         <label class="flex items-center space-x-2 bg-slate-900 p-2.5 rounded-xl border border-slate-700 cursor-pointer col-span-2">
+                            <input type="checkbox" value="atendimento" x-model="newStaffAllowedTabs" class="rounded text-indigo-500">
+                            <span class="text-white">Atendimento ao Cliente (chat)</span>
+                        </label>
+                        <label class="flex items-center space-x-2 bg-slate-900 p-2.5 rounded-xl border border-slate-700 cursor-pointer col-span-2">
                             <input type="checkbox" value="crm" x-model="newStaffAllowedTabs" class="rounded text-indigo-500">
                             <span class="text-white">CRM & Gestão de Acessos</span>
                         </label>
@@ -1799,6 +1865,68 @@
         let feedbackServiceChartInstance = null;
         let feedbackFoodChartInstance = null;
 
+        // ===== TEMPO REAL: Firebase Realtime Database via SSE (push instantâneo), com fallback automático para polling =====
+        const SC_DB = 'https://smartcomanda-df58e-default-rtdb.firebaseio.com';
+        function scLive(path, onData, pollMs) {
+            pollMs = pollMs || 3000;
+            const url = SC_DB + '/' + path + '.json';
+            let data = null, es = null, timer = null, closed = false, mode = 'connecting';
+
+            const emit = () => {
+                try { onData(data === null ? null : JSON.parse(JSON.stringify(data)), mode); } catch (e) { console.error(e); }
+            };
+            // aplica um valor em um caminho (ex.: "/mesa_1/-Nabc") na cópia local dos dados
+            const setIn = (p, val) => {
+                const parts = String(p || '/').split('/').filter(Boolean);
+                if (!parts.length) { data = (val === undefined ? null : val); return; }
+                if (data === null || typeof data !== 'object') data = {};
+                let node = data;
+                for (let i = 0; i < parts.length - 1; i++) {
+                    if (node[parts[i]] === null || node[parts[i]] === undefined || typeof node[parts[i]] !== 'object') node[parts[i]] = {};
+                    node = node[parts[i]];
+                }
+                const last = parts[parts.length - 1];
+                if (val === null || val === undefined) delete node[last]; else node[last] = val;
+            };
+            const poll = async () => {
+                try {
+                    const r = await fetch(url, { cache: 'no-store' });
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    data = await r.json();
+                    mode = 'polling';
+                } catch (e) { mode = 'offline'; }
+                if (!closed) emit();
+            };
+            const startPoll = () => { if (timer || closed) return; poll(); timer = setInterval(poll, pollMs); };
+            const stopPoll = () => { if (timer) { clearInterval(timer); timer = null; } };
+
+            try {
+                if (typeof EventSource === 'undefined') throw new Error('sem SSE');
+                es = new EventSource(url);
+                es.addEventListener('open', () => { mode = 'live'; stopPoll(); });
+                es.addEventListener('put', (ev) => {
+                    try { const m = JSON.parse(ev.data); setIn(m.path, m.data); mode = 'live'; emit(); } catch (e) {}
+                });
+                es.addEventListener('patch', (ev) => {
+                    try {
+                        const m = JSON.parse(ev.data);
+                        const base = String(m.path || '/').replace(/\/$/, '');
+                        Object.keys(m.data || {}).forEach(k => setIn(base + '/' + k, m.data[k]));
+                        mode = 'live'; emit();
+                    } catch (e) {}
+                });
+                const giveUp = () => { try { es.close(); } catch (e) {} startPoll(); };
+                es.addEventListener('cancel', giveUp);
+                es.addEventListener('auth_revoked', giveUp);
+                es.addEventListener('error', () => { if (!closed) { mode = 'reconnecting'; startPoll(); } });
+            } catch (e) { startPoll(); }
+
+            return {
+                close() { closed = true; stopPoll(); if (es) { try { es.close(); } catch (e) {} } },
+                get mode() { return mode; }
+            };
+        }
+
         function app() {
             return {
                 activeTab: 'saloon',
@@ -1851,6 +1979,311 @@
                 encomendasDashboard: [],
                 dashboardEncomendasRead: false,
                 selectedEncomenda: null,
+                // ===== ATENDIMENTO AO CLIENTE (chat em tempo real com o app do cliente que escaneou o QR Code) =====
+                atdChats: {},
+                atdMeta: {},
+                atdSelected: null,
+                atdDraft: '',
+                atdFilter: 'todas',
+                atdPending: [],
+                atdMode: 'connecting',
+                atdNow: Date.now(),
+                atdSeen: {},
+                atdKnownIncoming: {},
+                atdInitialized: false,
+                atdLastTypingSent: 0,
+                atdBaseTitle: '',
+                atdQuickReplies: [
+                    'Olá! Já estamos indo até a sua mesa.',
+                    'Seu pedido está em preparo e logo será servido.',
+                    'Pode deixar, já vamos resolver isso para você!',
+                    'Deseja mais alguma coisa? Estamos à disposição.',
+                    'Sua conta já está sendo preparada, só um instante.'
+                ],
+
+                initAtendimento() {
+                    this.atdBaseTitle = document.title;
+                    scLive('chats', (data, mode) => {
+                        this.atdMode = mode;
+                        this.atdChats = data || {};
+                        this.atdAfterChatsUpdate();
+                    }, 2500);
+                    scLive('chat_meta', (data) => {
+                        this.atdMeta = data || {};
+                        this.atdObserveMeta();
+                        if (this.activeTab === 'atendimento' && this.atdSelected !== null) this.atdMarkRead(this.atdSelected);
+                        this.atdUpdateTitle();
+                    }, 2500);
+                    setInterval(() => { this.atdNow = Date.now(); }, 2000);
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible' && this.activeTab === 'atendimento' && this.atdSelected !== null) this.atdMarkRead(this.atdSelected);
+                    });
+                    // Presença da equipe: o app do cliente mostra "Atendente em linha" enquanto este PC estiver logado e conectado
+                    const beat = () => {
+                        if (!navigator.onLine || !this.currentUser || !this.hasAccess('atendimento')) return;
+                        fetch(`${SC_DB}/staff_presence.json`, {
+                            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ ping: Date.now(), agent: this.currentUser.name })
+                        }).catch(() => {});
+                    };
+                    beat();
+                    setInterval(beat, 8000);
+                },
+
+                // Detecta, de forma independente de relógios, se o celular do cliente enviou sinal de vida/digitação recentemente
+                atdObserveMeta() {
+                    const next = Object.assign({}, this.atdSeen);
+                    const stale = Date.now() - 600000;
+                    Object.keys(this.atdMeta).forEach(k => {
+                        const m = this.atdMeta[k] || {};
+                        const prev = next[k];
+                        const cur = prev ? Object.assign({}, prev) : { ping: m.clientPing || 0, pingAt: stale, typing: m.clientTyping || 0, typingAt: stale };
+                        if (prev) {
+                            if ((m.clientPing || 0) !== prev.ping) { cur.ping = m.clientPing || 0; cur.pingAt = Date.now(); }
+                            if ((m.clientTyping || 0) !== prev.typing) { cur.typing = m.clientTyping || 0; cur.typingAt = Date.now(); }
+                        }
+                        next[k] = cur;
+                    });
+                    this.atdSeen = next;
+                },
+                atdIsClientOnline(mesa) {
+                    const s = this.atdSeen['mesa_' + mesa];
+                    return !!s && (this.atdNow - s.pingAt) < 25000;
+                },
+                atdIsClientTyping(mesa) {
+                    const s = this.atdSeen['mesa_' + mesa];
+                    return !!s && (this.atdNow - s.typingAt) < 5000;
+                },
+
+                atdMessages(mesa) {
+                    const raw = this.atdChats['mesa_' + mesa];
+                    const list = [];
+                    const seen = {};
+                    if (raw && typeof raw === 'object') {
+                        Object.keys(raw).sort().forEach(k => {
+                            const m = raw[k];
+                            if (m && typeof m === 'object' && m.text) { list.push(Object.assign({}, m, { id: k })); seen[k] = true; }
+                        });
+                    }
+                    this.atdPending.forEach(p => {
+                        if (p.mesa !== mesa) return;
+                        if (p.serverId && seen[p.serverId]) return;
+                        list.push(Object.assign({}, p.payload, { id: p.serverId || p.localId, localId: p.localId, pending: p.pending, failed: p.failed }));
+                    });
+                    return list;
+                },
+                atdConvFor(mesa) {
+                    const t = this.tables.find(x => x.number === mesa);
+                    const msgs = this.atdMessages(mesa);
+                    const meta = this.atdMeta['mesa_' + mesa] || {};
+                    const readUpTo = meta.staffReadUpTo || 0;
+                    const incoming = msgs.filter(m => m.sender === 'cliente');
+                    const unreadMsgs = incoming.filter(m => (m.timestamp || 0) > readUpTo);
+                    const last = msgs.length ? msgs[msgs.length - 1] : null;
+                    const lastIncoming = incoming.length ? incoming[incoming.length - 1] : null;
+                    const occupied = !!(t && t.status === 'ocupada');
+                    return {
+                        mesa: mesa,
+                        occupied: occupied,
+                        exists: occupied || msgs.length > 0,
+                        client: (t && t.client) || (lastIncoming && lastIncoming.clientName) || ('Mesa ' + mesa),
+                        last: last,
+                        unread: unreadMsgs.length,
+                        urgent: unreadMsgs.some(m => m.kind === 'chamado'),
+                        awaiting: !!(last && last.sender === 'cliente'),
+                        online: this.atdIsClientOnline(mesa),
+                        typing: this.atdIsClientTyping(mesa)
+                    };
+                },
+                get atdConversations() {
+                    const nums = {};
+                    this.tables.forEach(t => { if (t.status === 'ocupada') nums[t.number] = true; });
+                    Object.keys(this.atdChats).forEach(k => {
+                        const n = parseInt(k.replace('mesa_', ''), 10);
+                        if (!isNaN(n) && this.atdChats[k]) nums[n] = true;
+                    });
+                    let list = Object.keys(nums).map(n => this.atdConvFor(parseInt(n, 10))).filter(c => c.exists);
+                    if (this.atdFilter === 'sem_resposta') list = list.filter(c => c.awaiting);
+                    else if (this.atdFilter === 'online') list = list.filter(c => c.online);
+                    list.sort((a, b) => {
+                        if ((b.unread > 0) !== (a.unread > 0)) return b.unread > 0 ? 1 : -1;
+                        if (a.urgent !== b.urgent) return a.urgent ? -1 : 1;
+                        const ka = a.last ? String(a.last.id) : '';
+                        const kb = b.last ? String(b.last.id) : '';
+                        if (ka !== kb) return ka < kb ? 1 : -1;
+                        return a.mesa - b.mesa;
+                    });
+                    return list;
+                },
+                get atdSelectedConv() {
+                    if (this.atdSelected === null) return null;
+                    const c = this.atdConvFor(this.atdSelected);
+                    return c.exists ? c : null;
+                },
+                get atdThread() {
+                    return this.atdSelected === null ? [] : this.atdMessages(this.atdSelected);
+                },
+                get atdTable() {
+                    return this.atdSelected === null ? null : (this.tables.find(t => t.number === this.atdSelected) || null);
+                },
+                get atdTotalUnread() {
+                    let total = 0;
+                    Object.keys(this.atdChats).forEach(k => {
+                        const n = parseInt(k.replace('mesa_', ''), 10);
+                        if (!isNaN(n)) total += this.atdConvFor(n).unread;
+                    });
+                    return total;
+                },
+                atdIsReadByClient(m) {
+                    const meta = this.atdMeta['mesa_' + this.atdSelected] || {};
+                    return (m.timestamp || 0) <= (meta.clientReadUpTo || 0);
+                },
+                atdUpdateTitle() {
+                    const n = this.atdTotalUnread;
+                    document.title = (n > 0 ? '(' + n + ') ' : '') + (this.atdBaseTitle || 'SmartComanda');
+                },
+
+                atdAfterChatsUpdate() {
+                    // descarta mensagens "pendentes" que o servidor já confirmou
+                    if (this.atdPending.some(p => p.serverId && this.atdChats['mesa_' + p.mesa] && this.atdChats['mesa_' + p.mesa][p.serverId])) {
+                        this.atdPending = this.atdPending.filter(p => !(p.serverId && this.atdChats['mesa_' + p.mesa] && this.atdChats['mesa_' + p.mesa][p.serverId]));
+                    }
+                    // nova mensagem de cliente? (a primeira carga não apita)
+                    let incomingMesa = null;
+                    Object.keys(this.atdChats).forEach(k => {
+                        const msgs = this.atdChats[k];
+                        if (!msgs || typeof msgs !== 'object') return;
+                        const keys = Object.keys(msgs).sort();
+                        let lastKey = null;
+                        for (let i = keys.length - 1; i >= 0; i--) {
+                            const m = msgs[keys[i]];
+                            if (m && m.sender === 'cliente') { lastKey = keys[i]; break; }
+                        }
+                        if (lastKey && this.atdKnownIncoming[k] !== lastKey) {
+                            if (this.atdInitialized) incomingMesa = parseInt(k.replace('mesa_', ''), 10);
+                            this.atdKnownIncoming[k] = lastKey;
+                        }
+                    });
+                    this.atdInitialized = true;
+                    if (incomingMesa !== null) {
+                        const viewing = this.activeTab === 'atendimento' && this.atdSelected === incomingMesa && document.visibilityState === 'visible';
+                        if (!viewing && this.currentUser && this.hasAccess('atendimento')) this.playAudioAlert('bell');
+                    }
+                    if (this.activeTab === 'atendimento' && this.atdSelected !== null) {
+                        this.atdMarkRead(this.atdSelected);
+                        this.$nextTick(() => this.atdScrollBottom(false));
+                    }
+                    this.atdUpdateTitle();
+                },
+
+                atdMarkRead(mesa) {
+                    if (document.visibilityState !== 'visible') return;
+                    let max = 0;
+                    this.atdMessages(mesa).forEach(m => { if (m.sender === 'cliente' && !m.pending && (m.timestamp || 0) > max) max = m.timestamp; });
+                    const cur = (this.atdMeta['mesa_' + mesa] || {}).staffReadUpTo || 0;
+                    if (max === 0 || max <= cur) return;
+                    const meta = Object.assign({}, this.atdMeta);
+                    meta['mesa_' + mesa] = Object.assign({}, meta['mesa_' + mesa], { staffReadUpTo: max });
+                    this.atdMeta = meta;
+                    fetch(`${SC_DB}/chat_meta/mesa_${mesa}.json`, {
+                        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ staffReadUpTo: max, agent: this.currentUser ? this.currentUser.name : '' })
+                    }).catch(() => {});
+                },
+                atdTabOpened() {
+                    if (this.atdSelected === null || !this.atdConvFor(this.atdSelected).exists) {
+                        const first = this.atdConversations[0];
+                        this.atdSelected = first ? first.mesa : null;
+                    }
+                    if (this.atdSelected !== null) {
+                        this.atdMarkRead(this.atdSelected);
+                        this.$nextTick(() => this.atdScrollBottom(true));
+                    }
+                },
+                atdSelect(mesa) {
+                    this.atdSelected = mesa;
+                    this.atdDraft = '';
+                    this.atdMarkRead(mesa);
+                    this.$nextTick(() => this.atdScrollBottom(true));
+                },
+                atdScrollBottom(force) {
+                    const box = document.getElementById('atdThreadBox');
+                    if (!box) return;
+                    if (force || (box.scrollHeight - box.scrollTop - box.clientHeight) < 140) box.scrollTop = box.scrollHeight;
+                },
+                atdOnDraftInput() {
+                    const mesa = this.atdSelected;
+                    if (mesa === null || !this.atdDraft) return;
+                    const now = Date.now();
+                    if (now - this.atdLastTypingSent < 2500) return;
+                    this.atdLastTypingSent = now;
+                    fetch(`${SC_DB}/chat_meta/mesa_${mesa}.json`, {
+                        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ staffTyping: now })
+                    }).catch(() => {});
+                },
+                async atdSend(textOverride) {
+                    const mesa = this.atdSelected;
+                    const text = (textOverride !== undefined ? textOverride : this.atdDraft).trim();
+                    if (mesa === null || !text) return;
+                    if (textOverride === undefined) this.atdDraft = '';
+                    const conv = this.atdConvFor(mesa);
+                    const ts = Date.now();
+                    const payload = {
+                        sender: 'atendente',
+                        agent: this.currentUser ? this.currentUser.name : 'Atendente',
+                        clientName: conv.client,
+                        table: mesa,
+                        text: text,
+                        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                        timestamp: ts
+                    };
+                    const localId = 'p' + ts + Math.random().toString(36).slice(2, 6);
+                    this.atdPending.push({ localId: localId, mesa: mesa, payload: payload, pending: true, failed: false, serverId: null });
+                    this.atdMarkRead(mesa);
+                    this.$nextTick(() => this.atdScrollBottom(true));
+                    await this.atdPost(localId);
+                },
+                async atdPost(localId) {
+                    const p0 = this.atdPending.find(x => x.localId === localId);
+                    if (!p0) return;
+                    p0.pending = true; p0.failed = false;
+                    try {
+                        const res = await fetch(`${SC_DB}/chats/mesa_${p0.mesa}.json`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(p0.payload)
+                        });
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        const j = await res.json();
+                        const q = this.atdPending.find(x => x.localId === localId);
+                        if (q) {
+                            if (j && j.name) { q.serverId = j.name; q.pending = false; }
+                            else this.atdPending = this.atdPending.filter(x => x.localId !== localId);
+                        }
+                    } catch (e) {
+                        const q = this.atdPending.find(x => x.localId === localId);
+                        if (q) { q.pending = false; q.failed = true; }
+                    }
+                },
+                // Ao finalizar a comanda: arquiva a conversa e zera o chat da mesa (o QR Code é fixo por mesa, então o próximo cliente não pode ver o histórico do anterior)
+                async atdArchiveAndClear(mesa, clientName) {
+                    const key = 'mesa_' + mesa;
+                    try {
+                        const msgs = this.atdChats[key];
+                        if (msgs && Object.keys(msgs).length) {
+                            await fetch(`${SC_DB}/chats_arquivo/${key}_${Date.now()}.json`, {
+                                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ mesa: mesa, cliente: clientName || '', encerradoEm: new Date().toISOString(), mensagens: msgs })
+                            });
+                        }
+                    } catch (e) {}
+                    try {
+                        await fetch(`${SC_DB}/chats/${key}.json`, { method: 'DELETE' });
+                        await fetch(`${SC_DB}/chat_meta/${key}.json`, { method: 'DELETE' });
+                    } catch (e) {}
+                    this.atdPending = this.atdPending.filter(p => p.mesa !== mesa);
+                },
+
                 
                 async deleteEncomenda(enc) {
                     if(!confirm(`Deseja realmente excluir definitivamente a encomenda de ${enc.client} (${enc.orderCode || 'Encomenda'})?`)) return;
@@ -2040,6 +2473,7 @@
                     }, 4000);
 
                     window.addEventListener('offline', () => this.isOnline = false);
+                    this.initAtendimento();
 
                     const savedMenu = localStorage.getItem('smartcomanda_menu_v8');
                     if(savedMenu) {
@@ -2056,10 +2490,10 @@
                         try { this.staffDatabase = JSON.parse(savedStaff); } catch(e){}
                     } else {
                         this.staffDatabase = [
-                            { id: 1, name: 'Administrador / Gerente', user: 'admin', pin: '1234', role: 'Gerente', allowedTabs: ['saloon', 'kitchen', 'menu', 'dashboard', 'chat', 'crm'] },
-                            { id: 2, name: 'Carlos Garçom', user: 'garcom', pin: '1234', role: 'Garçom', allowedTabs: ['saloon'] },
+                            { id: 1, name: 'Administrador / Gerente', user: 'admin', pin: '1234', role: 'Gerente', allowedTabs: ['saloon', 'kitchen', 'menu', 'dashboard', 'crm', 'atendimento'] },
+                            { id: 2, name: 'Carlos Garçom', user: 'garcom', pin: '1234', role: 'Garçom', allowedTabs: ['saloon', 'atendimento'] },
                             { id: 3, name: 'Chef João (Cozinha)', user: 'cozinha', pin: '1234', role: 'Cozinheiro', allowedTabs: ['kitchen'] },
-                            { id: 4, name: 'Ana Caixa', user: 'caixa', pin: '1234', role: 'Caixa', allowedTabs: ['saloon', 'crm'] }
+                            { id: 4, name: 'Ana Caixa', user: 'caixa', pin: '1234', role: 'Caixa', allowedTabs: ['saloon', 'atendimento', 'crm'] }
                         ];
                         localStorage.setItem('smartcomanda_staff_v8', JSON.stringify(this.staffDatabase));
                     }
@@ -2067,6 +2501,16 @@
                     const savedSession = localStorage.getItem('smartcomanda_session_v8');
                     if(savedSession) {
                         try { this.currentUser = JSON.parse(savedSession); } catch(e){}
+                    }
+
+                    // Migração (uma única vez): libera a nova aba "Atendimento" para Gerente, Garçom e Caixa que já estavam cadastrados
+                    if (!localStorage.getItem('smartcomanda_migr_atendimento_v1')) {
+                        const addAtd = (u) => { if (u && Array.isArray(u.allowedTabs) && ['Gerente', 'Garçom', 'Caixa'].includes(u.role) && !u.allowedTabs.includes('atendimento')) u.allowedTabs.push('atendimento'); };
+                        this.staffDatabase.forEach(addAtd);
+                        if (this.currentUser) addAtd(this.currentUser);
+                        localStorage.setItem('smartcomanda_staff_v8', JSON.stringify(this.staffDatabase));
+                        if (this.currentUser) localStorage.setItem('smartcomanda_session_v8', JSON.stringify(this.currentUser));
+                        localStorage.setItem('smartcomanda_migr_atendimento_v1', '1');
                     }
 
                     const savedClients = localStorage.getItem('smartcomanda_clients_v8');
@@ -2626,6 +3070,9 @@
                     // 3. Remover pedidos da cozinha referentes a esta mesa
                     this.orders = this.orders.filter(o => o.tableNumber !== t.number);
 
+                    // Chat de atendimento: arquiva e zera a conversa da mesa (cliente ainda identificado neste ponto)
+                    this.atdArchiveAndClear(t.number, t.client);
+
                     // 4. ZERAR COMPLETAMENTE AS INFORMAÇÕES DA MESA E O CRONÔMETRO
                     t.status = 'livre';
                     t.client = '';
@@ -2835,19 +3282,19 @@ exportLiveExcel() {
                         'menu': 'Cardápio',
                         'dashboard': 'Dashboard',
                         'crm': 'CRM & Acessos',
-                        'chat': 'Atendimento ao Cliente'
+                        'atendimento': 'Atendimento'
                     };
                     return map[tabKey] || tabKey;
                 },
                 autoSelectPermissions() {
                     if(this.newStaffRole === 'Gerente') {
-                        this.newStaffAllowedTabs = ['saloon', 'kitchen', 'menu', 'dashboard', 'chat', 'crm'];
+                        this.newStaffAllowedTabs = ['saloon', 'kitchen', 'menu', 'dashboard', 'crm', 'atendimento'];
                     } else if(this.newStaffRole === 'Garçom') {
-                        this.newStaffAllowedTabs = ['saloon'];
+                        this.newStaffAllowedTabs = ['saloon', 'atendimento'];
                     } else if(this.newStaffRole === 'Cozinheiro') {
                         this.newStaffAllowedTabs = ['kitchen'];
                     } else if(this.newStaffRole === 'Caixa') {
-                        this.newStaffAllowedTabs = ['saloon', 'crm'];
+                        this.newStaffAllowedTabs = ['saloon', 'atendimento', 'crm'];
                     }
                 },
                 addStaffManual() {

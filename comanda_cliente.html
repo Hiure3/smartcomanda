@@ -32,7 +32,7 @@
          x-transition:leave-end="translate-x-full opacity-0"
          class="fixed top-4 right-4 z-50 bg-emerald-500 text-slate-950 font-bold px-4 py-3 rounded-xl shadow-2xl border-2 border-emerald-300 flex items-center space-x-2.5 max-w-xs animate-slide-in">
         <div class="bg-slate-950 text-emerald-400 p-1.5 rounded-lg flex items-center justify-center shrink-0">
-            <i class="fa-solid fa-circle-check text-lg"></i>
+            <i class="fa-solid text-lg" :class="notificationIcon"></i>
         </div>
         <div class="flex flex-col text-left">
             <span class="text-[10px] font-black uppercase tracking-wider text-slate-950">SmartComanda</span>
@@ -43,9 +43,9 @@
         </button>
     </div>
 
-    <!-- MODAL DE CHAT - TALK TO ATTENDANT -->
+    <!-- MODAL DE CHAT - FALAR COM O ATENDENTE (tempo real com o PC da loja) -->
     <div x-show="showChatModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
-        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl flex flex-col h-[520px] overflow-hidden">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl flex flex-col h-[560px] max-h-[92vh] overflow-hidden">
             <!-- Header Chat -->
             <div class="bg-slate-900 p-3.5 border-b border-slate-700 flex justify-between items-center">
                 <div class="flex items-center space-x-2.5">
@@ -54,9 +54,9 @@
                     </div>
                     <div>
                         <h4 class="font-bold text-sm text-white">Atendimento da Padaria</h4>
-                        <p class="text-[10px] text-emerald-400 flex items-center space-x-1">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                            <span>Atendente em linha • Mesa <span x-text="tableNumber"></span></span>
+                        <p class="text-[10px] flex items-center space-x-1" :class="attendantOnline ? 'text-emerald-400' : 'text-slate-400'">
+                            <span class="w-1.5 h-1.5 rounded-full" :class="attendantOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'"></span>
+                            <span x-text="attendantTyping ? 'Atendente digitando...' : (attendantOnline ? 'Atendente em linha • Mesa ' + tableNumber : 'Equipe ausente no momento • Mesa ' + tableNumber)"></span>
                         </p>
                     </div>
                 </div>
@@ -71,27 +71,52 @@
                     <div class="text-center py-8 text-slate-500 space-y-2">
                         <i class="fa-solid fa-comments text-3xl opacity-50"></i>
                         <p>Olá! Como podemos te ajudar hoje?</p>
-                        <p class="text-[10px]">Envie uma mensagem para a nossa equipe.</p>
+                        <p class="text-[10px]">Envie uma mensagem ou toque em um atalho abaixo.</p>
                     </div>
                 </template>
-                <template x-for="msg in chatMessages" :key="msg.id || msg.timestamp">
+                <template x-for="msg in chatMessages" :key="msg.id">
                     <div class="flex flex-col" :class="msg.sender === 'cliente' ? 'items-end' : 'items-start'">
-                        <div class="max-w-[80%] rounded-2xl px-3.5 py-2" 
+                        <div class="max-w-[80%] rounded-2xl px-3.5 py-2"
                              :class="msg.sender === 'cliente' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-none'">
-                            <p class="text-xs font-medium leading-relaxed" x-text="msg.text"></p>
-                            <span class="text-[9px] opacity-70 block text-right mt-1" x-text="msg.time"></span>
+                            <p class="text-xs font-medium leading-relaxed whitespace-pre-wrap break-words" x-text="msg.text"></p>
+                            <span class="text-[9px] opacity-70 flex items-center justify-end space-x-1 mt-1">
+                                <span x-text="msg.time"></span>
+                                <template x-if="msg.sender === 'cliente'">
+                                    <i class="fa-solid" :class="msg.failed ? 'fa-triangle-exclamation text-amber-300' : (msg.pending ? 'fa-clock' : (isReadByStaff(msg) ? 'fa-check-double text-sky-300' : 'fa-check'))"></i>
+                                </template>
+                            </span>
                         </div>
-                        <span class="text-[9px] text-slate-500 mt-0.5 px-1" x-text="msg.sender === 'cliente' ? 'Você' : 'Atendente'"></span>
+                        <button x-show="msg.failed" @click="retryMessage(msg.localId)" class="text-[10px] text-amber-400 underline mt-0.5 px-1">Falha ao enviar. Toque para reenviar</button>
+                        <span class="text-[9px] text-slate-500 mt-0.5 px-1" x-text="msg.sender === 'cliente' ? 'Você' : (msg.agent ? String(msg.agent).split(' ')[0] : 'Atendente')"></span>
                     </div>
                 </template>
+                <div x-show="attendantTyping" class="text-[10px] text-slate-500 italic">Atendente digitando...</div>
             </div>
 
-            <!-- Input Message -->
-            <div class="p-3 bg-slate-900 border-t border-slate-700 flex items-center space-x-2">
-                <input type="text" x-model="newMessage" @keydown.enter="sendChatMessage()" placeholder="Digite sua mensagem..." class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
-                <button @click="sendChatMessage()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1">
-                    <i class="fa-solid fa-paper-plane"></i>
-                </button>
+            <!-- Encerrado -->
+            <template x-if="isFinalized">
+                <div class="p-3 text-center text-[11px] text-slate-400 bg-slate-900 border-t border-slate-700">
+                    Atendimento indisponível: esta mesa não tem uma comanda aberta no momento.
+                </div>
+            </template>
+
+            <!-- Atalhos + Input Message -->
+            <div x-show="!isFinalized" class="bg-slate-900 border-t border-slate-700">
+                <p x-show="chatNotice" class="px-3 pt-2 text-[10px] text-amber-400" x-text="chatNotice"></p>
+                <div class="px-3 pt-2.5 flex gap-1.5 overflow-x-auto">
+                    <template x-for="chip in chatChips" :key="chip.label">
+                        <button @click="sendChip(chip)" class="shrink-0 bg-slate-950 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500/60 text-slate-200 text-[11px] font-bold px-2.5 py-1.5 rounded-full transition-all flex items-center space-x-1.5">
+                            <i class="fa-solid" :class="chip.icon"></i>
+                            <span x-text="chip.label"></span>
+                        </button>
+                    </template>
+                </div>
+                <div class="p-3 flex items-center space-x-2">
+                    <input type="text" x-model="newMessage" @input="onChatInput()" @keydown.enter="sendChatMessage()" placeholder="Digite sua mensagem..." class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    <button @click="sendChatMessage()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -120,9 +145,10 @@
                     </span>
 
                     <!-- BOTÃO TALK TO ATTENDANT LOGO ABAIXO DO ONLINE -->
-                    <button @click="showChatModal = true" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all shadow flex items-center space-x-1 border border-indigo-400/30">
+                    <button @click="openChat()" class="relative bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all shadow flex items-center space-x-1 border border-indigo-400/30">
                         <i class="fa-solid fa-comments"></i>
                         <span>Falar com atendente</span>
+                        <span x-show="chatUnread > 0" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center font-black animate-bounce" x-text="chatUnread"></span>
                     </button>
                 </div>
             </div>
@@ -336,6 +362,68 @@
     </div>
 
     <script>
+        // ===== TEMPO REAL: Firebase Realtime Database via SSE (push instantâneo), com fallback automático para polling =====
+        const SC_DB = 'https://smartcomanda-df58e-default-rtdb.firebaseio.com';
+        function scLive(path, onData, pollMs) {
+            pollMs = pollMs || 3000;
+            const url = SC_DB + '/' + path + '.json';
+            let data = null, es = null, timer = null, closed = false, mode = 'connecting';
+
+            const emit = () => {
+                try { onData(data === null ? null : JSON.parse(JSON.stringify(data)), mode); } catch (e) { console.error(e); }
+            };
+            // aplica um valor em um caminho (ex.: "/mesa_1/-Nabc") na cópia local dos dados
+            const setIn = (p, val) => {
+                const parts = String(p || '/').split('/').filter(Boolean);
+                if (!parts.length) { data = (val === undefined ? null : val); return; }
+                if (data === null || typeof data !== 'object') data = {};
+                let node = data;
+                for (let i = 0; i < parts.length - 1; i++) {
+                    if (node[parts[i]] === null || node[parts[i]] === undefined || typeof node[parts[i]] !== 'object') node[parts[i]] = {};
+                    node = node[parts[i]];
+                }
+                const last = parts[parts.length - 1];
+                if (val === null || val === undefined) delete node[last]; else node[last] = val;
+            };
+            const poll = async () => {
+                try {
+                    const r = await fetch(url, { cache: 'no-store' });
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    data = await r.json();
+                    mode = 'polling';
+                } catch (e) { mode = 'offline'; }
+                if (!closed) emit();
+            };
+            const startPoll = () => { if (timer || closed) return; poll(); timer = setInterval(poll, pollMs); };
+            const stopPoll = () => { if (timer) { clearInterval(timer); timer = null; } };
+
+            try {
+                if (typeof EventSource === 'undefined') throw new Error('sem SSE');
+                es = new EventSource(url);
+                es.addEventListener('open', () => { mode = 'live'; stopPoll(); });
+                es.addEventListener('put', (ev) => {
+                    try { const m = JSON.parse(ev.data); setIn(m.path, m.data); mode = 'live'; emit(); } catch (e) {}
+                });
+                es.addEventListener('patch', (ev) => {
+                    try {
+                        const m = JSON.parse(ev.data);
+                        const base = String(m.path || '/').replace(/\/$/, '');
+                        Object.keys(m.data || {}).forEach(k => setIn(base + '/' + k, m.data[k]));
+                        mode = 'live'; emit();
+                    } catch (e) {}
+                });
+                const giveUp = () => { try { es.close(); } catch (e) {} startPoll(); };
+                es.addEventListener('cancel', giveUp);
+                es.addEventListener('auth_revoked', giveUp);
+                es.addEventListener('error', () => { if (!closed) { mode = 'reconnecting'; startPoll(); } });
+            } catch (e) { startPoll(); }
+
+            return {
+                close() { closed = true; stopPoll(); if (es) { try { es.close(); } catch (e) {} } },
+                get mode() { return mode; }
+            };
+        }
+
         function clienteApp() {
             return {
                 activeTab: 'comanda',
@@ -349,14 +437,31 @@
                 feedbackComment: '',
                 showSuccessNotification: false,
                 notificationText: 'Pedido finalizado com sucesso!',
+                notificationIcon: 'fa-circle-check',
                 isFinalized: false,
                 previousStatus: null,
                 hasNotifiedFinalized: false, // Flag rigorosa para exibir a notificação APENAS UMA VEZ na transição do Windows
                 
-                // Chat
+                // Chat em tempo real com o PC da loja
                 showChatModal: false,
-                chatMessages: [],
                 newMessage: '',
+                chatRaw: {},
+                chatMeta: {},
+                chatPending: [],
+                chatNow: Date.now(),
+                chatInitialized: false,
+                metaInitialized: false,
+                knownAttendantKey: null,
+                attSeen: { ping: null, at: 0 },
+                attTypingSeen: { val: 0, at: 0 },
+                lastTypingSent: 0,
+                chipSentAt: {},
+                chatNotice: '',
+                chatChips: [
+                    { label: 'Chamar garçom', icon: 'fa-bell-concierge', text: 'Preciso de ajuda na mesa, por favor.' },
+                    { label: 'Pedir a conta', icon: 'fa-receipt', text: 'Gostaria de pedir a conta, por favor.' },
+                    { label: 'Dúvida no pedido', icon: 'fa-circle-question', text: 'Tenho uma dúvida sobre o meu pedido.' }
+                ],
 
                 // Produtos da Casa / Padaria
                 selectedPadariaCat: 'Todos',
@@ -386,6 +491,8 @@
                 encDescription: '',
 
                 async init() {
+                    if (this._started) return; // Alpine chama init() sozinho e o x-init chama de novo
+                    this._started = true;
                     const urlParams = new URLSearchParams(window.location.search);
                     const mesaParam = urlParams.get('mesa');
                     if(mesaParam) {
@@ -407,10 +514,35 @@
 
                     // Buscar dados do Firebase
                     await this.fetchTableData();
-                    await this.fetchChatMessages();
-                    
                     setInterval(() => this.fetchTableData(), 3000);
-                    setInterval(() => this.fetchChatMessages(), 2500);
+
+                    // Chat em tempo real (push via SSE; cai para polling sozinho se necessário)
+                    scLive(`chats/mesa_${this.tableNumber}`, (data) => {
+                        this.chatRaw = data || {};
+                        this.chatAfterUpdate();
+                    }, 2500);
+                    scLive(`chat_meta/mesa_${this.tableNumber}`, (data) => {
+                        const meta = data || {};
+                        const tv = meta.staffTyping || 0;
+                        if (tv !== this.attTypingSeen.val) this.attTypingSeen = { val: tv, at: this.metaInitialized ? Date.now() : 0 };
+                        this.metaInitialized = true;
+                        this.chatMeta = meta;
+                        if (this.showChatModal) this.chatMarkRead();
+                    }, 2500);
+                    // Presença da equipe (PC da loja logado e conectado)
+                    scLive('staff_presence', (data) => {
+                        const ping = data && data.ping ? data.ping : 0;
+                        if (ping !== this.attSeen.ping) this.attSeen = { ping: ping, at: this.attSeen.ping === null ? 0 : Date.now() };
+                    }, 5000);
+                    setInterval(() => { this.chatNow = Date.now(); }, 2000);
+
+                    // Sinal de vida: a loja vê "Acompanhando a comanda agora" enquanto este celular estiver com o app aberto
+                    const ping = () => { if (document.visibilityState === 'visible' && !this.isFinalized) this.patchMeta({ clientPing: Date.now() }); };
+                    ping();
+                    setInterval(ping, 8000);
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible') { ping(); if (this.showChatModal) this.chatMarkRead(); }
+                    });
                 },
 
                 get filteredPadariaProducts() {
@@ -445,8 +577,9 @@
                     return sum;
                 },
 
-                triggerSuccessNotification(msg = 'Pedido finalizado com sucesso!') {
+                triggerSuccessNotification(msg = 'Pedido finalizado com sucesso!', icon = 'fa-circle-check') {
                     this.notificationText = msg;
+                    this.notificationIcon = icon;
                     this.showSuccessNotification = true;
                     setTimeout(() => {
                         this.showSuccessNotification = false;
@@ -481,11 +614,6 @@
                                     this.previousStatus = tableFound.status;
 
                                     if(tableFound.status === 'ocupada') {
-                                        // Reset total do estado de finalização para o novo cliente
-                                        this.isFinalized = false;
-                                        this.showSuccessNotification = false;
-                                        this.hasNotifiedFinalized = false;
-
                                         this.clientName = tableFound.client || 'Mesa Ocupada';
                                         let totalSec = tableFound.satSeconds || 0;
                                         let m = Math.floor(totalSec / 60);
@@ -494,11 +622,7 @@
                                         this.total = tableFound.total || 0;
                                         this.items = tableFound.items || [];
                                     } else if(tableFound.status === 'livre') {
-                                        if(this.previousStatus === 'ocupada') {
-                                            this.isFinalized = true;
-                                        } else {
-                                            this.isFinalized = false;
-                                        }
+                                        this.isFinalized = true;
                                     }
                                 }
                             }
@@ -506,51 +630,138 @@
                     } catch(e) {}
                 },
 
-                // Chat em tempo real no Firebase
-                async fetchChatMessages() {
-                    try {
-                        const res = await fetch(`https://smartcomanda-df58e-default-rtdb.firebaseio.com/chats/mesa_${this.tableNumber}.json`);
-                        if(res.ok) {
-                            const data = await res.json();
-                            if(data) {
-                                const list = [];
-                                Object.keys(data).forEach(k => {
-                                    list.push({ id: k, ...data[k] });
-                                });
-                                list.sort((a,b) => (a.timestamp || 0) - (b.timestamp || 0));
-                                this.chatMessages = list;
-                            } else {
-                                this.chatMessages = [];
-                            }
-                        }
-                    } catch(e){}
+                // ===== Chat em tempo real =====
+                get chatMessages() {
+                    const list = [];
+                    const seen = {};
+                    Object.keys(this.chatRaw || {}).sort().forEach(k => {
+                        const m = this.chatRaw[k];
+                        if (m && typeof m === 'object' && m.text) { list.push(Object.assign({}, m, { id: k })); seen[k] = true; }
+                    });
+                    this.chatPending.forEach(p => {
+                        if (p.serverId && seen[p.serverId]) return;
+                        list.push(Object.assign({}, p.payload, { id: p.serverId || p.localId, localId: p.localId, pending: p.pending, failed: p.failed }));
+                    });
+                    return list;
                 },
+                get chatUnread() {
+                    if (this.showChatModal) return 0;
+                    const readUpTo = this.chatMeta.clientReadUpTo || 0;
+                    return this.chatMessages.filter(m => m.sender !== 'cliente' && !m.pending && (m.timestamp || 0) > readUpTo).length;
+                },
+                get attendantOnline() { return (this.chatNow - this.attSeen.at) < 25000; },
+                get attendantTyping() { return (this.chatNow - this.attTypingSeen.at) < 5000; },
+                isReadByStaff(msg) { return (msg.timestamp || 0) <= (this.chatMeta.staffReadUpTo || 0); },
 
-                async sendChatMessage() {
-                    if(!this.newMessage.trim()) return;
-
-                    const msgData = {
+                openChat() {
+                    this.showChatModal = true;
+                    this.showSuccessNotification = false;
+                    this.$nextTick(() => { this.chatMarkRead(); this.chatScrollBottom(true); });
+                },
+                chatScrollBottom(force) {
+                    const box = document.getElementById('chatMessagesBox');
+                    if (!box) return;
+                    if (force || (box.scrollHeight - box.scrollTop - box.clientHeight) < 120) box.scrollTop = box.scrollHeight;
+                },
+                patchMeta(obj) {
+                    if (this.isFinalized) return;
+                    fetch(`${SC_DB}/chat_meta/mesa_${this.tableNumber}.json`, {
+                        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj)
+                    }).catch(() => {});
+                },
+                chatMarkRead() {
+                    if (document.visibilityState !== 'visible') return;
+                    let max = 0;
+                    Object.keys(this.chatRaw || {}).forEach(k => {
+                        const m = this.chatRaw[k];
+                        if (m && m.sender !== 'cliente' && (m.timestamp || 0) > max) max = m.timestamp;
+                    });
+                    if (max === 0 || (this.chatMeta.clientReadUpTo || 0) >= max) return;
+                    this.chatMeta = Object.assign({}, this.chatMeta, { clientReadUpTo: max });
+                    this.patchMeta({ clientReadUpTo: max });
+                },
+                chatAfterUpdate() {
+                    // descarta mensagens "pendentes" que o servidor já confirmou
+                    if (this.chatPending.some(p => p.serverId && this.chatRaw[p.serverId])) {
+                        this.chatPending = this.chatPending.filter(p => !(p.serverId && this.chatRaw[p.serverId]));
+                    }
+                    // chegou resposta nova da equipe? (a primeira carga não avisa)
+                    const keys = Object.keys(this.chatRaw).sort();
+                    let lastKey = null;
+                    for (let i = keys.length - 1; i >= 0; i--) {
+                        const m = this.chatRaw[keys[i]];
+                        if (m && m.sender !== 'cliente') { lastKey = keys[i]; break; }
+                    }
+                    if (lastKey && lastKey !== this.knownAttendantKey) {
+                        if (this.chatInitialized && !this.showChatModal) {
+                            this.triggerSuccessNotification('Atendente: ' + String(this.chatRaw[lastKey].text).slice(0, 60), 'fa-comment-dots');
+                            if (navigator.vibrate) { try { navigator.vibrate([120, 60, 120]); } catch (e) {} }
+                        }
+                        this.knownAttendantKey = lastKey;
+                    }
+                    this.chatInitialized = true;
+                    if (this.showChatModal) {
+                        this.chatMarkRead();
+                        this.$nextTick(() => this.chatScrollBottom(false));
+                    }
+                },
+                onChatInput() {
+                    if (!this.newMessage) return;
+                    const now = Date.now();
+                    if (now - this.lastTypingSent < 2500) return;
+                    this.lastTypingSent = now;
+                    this.patchMeta({ clientTyping: now });
+                },
+                sendChip(chip) {
+                    const last = this.chipSentAt[chip.label] || 0;
+                    if (Date.now() - last < 15000) {
+                        this.chatNotice = 'Seu chamado já foi enviado. Aguarde um instante, por favor.';
+                        setTimeout(() => { this.chatNotice = ''; }, 4000);
+                        return;
+                    }
+                    this.chipSentAt[chip.label] = Date.now();
+                    this.sendChatMessage(chip.text, 'chamado');
+                },
+                async sendChatMessage(textOverride, kind) {
+                    if (this.isFinalized) return;
+                    const text = (typeof textOverride === 'string' ? textOverride : this.newMessage).trim();
+                    if (!text) return;
+                    if (typeof textOverride !== 'string') this.newMessage = '';
+                    const ts = Date.now();
+                    const payload = {
                         sender: 'cliente',
                         clientName: this.clientName || 'Cliente Mesa ' + this.tableNumber,
                         table: this.tableNumber,
-                        text: this.newMessage.trim(),
-                        time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                        timestamp: Date.now()
+                        text: text,
+                        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                        timestamp: ts
                     };
-
-                    this.chatMessages.push(msgData);
-                    const txtToClear = this.newMessage;
-                    this.newMessage = '';
-
+                    if (kind) payload.kind = kind;
+                    const localId = 'p' + ts + Math.random().toString(36).slice(2, 6);
+                    this.chatPending.push({ localId: localId, payload: payload, pending: true, failed: false, serverId: null });
+                    this.$nextTick(() => this.chatScrollBottom(true));
+                    await this.postPending(localId);
+                },
+                retryMessage(localId) { this.postPending(localId); },
+                async postPending(localId) {
+                    const p0 = this.chatPending.find(x => x.localId === localId);
+                    if (!p0) return;
+                    p0.pending = true; p0.failed = false;
                     try {
-                        await fetch(`https://smartcomanda-df58e-default-rtdb.firebaseio.com/chats/mesa_${this.tableNumber}.json`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(msgData)
+                        const res = await fetch(`${SC_DB}/chats/mesa_${this.tableNumber}.json`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(p0.payload)
                         });
-                        this.fetchChatMessages();
-                    } catch(e) {
-                        alert('Erro ao enviar mensagem.');
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        const j = await res.json();
+                        const q = this.chatPending.find(x => x.localId === localId);
+                        if (q) {
+                            if (j && j.name) { q.serverId = j.name; q.pending = false; }
+                            else this.chatPending = this.chatPending.filter(x => x.localId !== localId);
+                        }
+                    } catch (e) {
+                        const q = this.chatPending.find(x => x.localId === localId);
+                        if (q) { q.pending = false; q.failed = true; }
                     }
                 },
 
