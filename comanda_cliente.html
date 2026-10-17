@@ -137,16 +137,16 @@
 
             <div class="p-3.5 space-y-3 overflow-y-auto text-xs">
                 <div class="flex gap-2">
-                    <input type="tel" x-model="trackWhatsapp" @keydown.enter="loadMyEncomendas()" placeholder="Seu WhatsApp (ex: 11999999999)" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    <input type="tel" x-model="trackWhatsapp" @keydown.enter="loadMyEncomendas()" placeholder="Nº do pedido (ex: 02) ou seu WhatsApp" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
                     <button @click="loadMyEncomendas()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl font-bold flex items-center space-x-1">
                         <i class="fa-solid fa-magnifying-glass"></i><span>Buscar</span>
                     </button>
                 </div>
-                <p class="text-[10px] text-slate-400">Aqui aparecem somente as encomendas feitas na comanda ativa desta mesa. Encomendas de clientes anteriores nunca são exibidas. <span class="text-slate-600">(v6)</span></p>
+                <p class="text-[10px] text-slate-400">Digite o número do pedido (ex: 02) ou o WhatsApp para buscar. Aqui aparecem somente as encomendas feitas na comanda ativa desta mesa. Encomendas de clientes anteriores nunca são exibidas. <span class="text-slate-600">(v6)</span></p>
 
                 <p x-show="trackLoading" class="text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Atualizando...</p>
                 <template x-if="!trackLoading && myEncomendas.length === 0">
-                    <p class="text-center text-slate-500 italic py-6" x-text="hasActiveSession ? 'Nenhuma encomenda encontrada nesta comanda.' : 'Nenhuma comanda ativa nesta mesa no momento.'"></p>
+                    <p class="text-center text-slate-500 italic py-6" x-text="!hasActiveSession ? 'Nenhuma comanda ativa nesta mesa no momento.' : (String(trackWhatsapp || '').trim() ? 'Pedido não encontrado nesta comanda.' : 'Nenhuma encomenda encontrada nesta comanda.')"></p>
                 </template>
 
                 <template x-for="e in myEncomendas" :key="e.fbKey">
@@ -1141,6 +1141,8 @@
                         } catch (e) {}
                     }
                     const dg = String(this.trackWhatsapp || '').replace(/\D/g, '');
+                    // Busca: 8+ dígitos = WhatsApp; poucos dígitos = número do pedido (ex.: "02", "PEDIDO:02")
+                    const byNumber = dg.length > 0 && dg.length < 8 ? parseInt(dg, 10) : null;
                     if (dg.length >= 8) {
                         try {
                             const q = `${SC_DB}/encomendas.json?orderBy=${encodeURIComponent('"whatsappDigits"')}&equalTo=${encodeURIComponent('"' + dg + '"')}`;
@@ -1151,6 +1153,17 @@
                                 Object.keys(d || {}).forEach(k => { if (d[k] && d[k].sessionId === sid) found[k] = d[k]; });
                             }
                         } catch (e) {}
+                    } else if (byNumber !== null) {
+                        try {
+                            const q = `${SC_DB}/encomendas.json?orderBy=${encodeURIComponent('"orderNumber"')}&equalTo=${byNumber}`;
+                            const r = await fetch(q, { cache: 'no-store' });
+                            if (r.ok) {
+                                const d = await r.json();
+                                // o pedido só aparece se foi feito pelo cliente conectado agora nesta mesa
+                                Object.keys(d || {}).forEach(k => { if (d[k] && d[k].sessionId === sid) found[k] = d[k]; });
+                            }
+                        } catch (e) {}
+                        Object.keys(found).forEach(k => { if (Number(found[k].orderNumber) !== byNumber) delete found[k]; });
                     }
                     if (sid !== this.sid || !this.hasActiveSession) { this.trackLoading = false; return; }   // cliente mudou durante a busca
                     this.myEncomendas = Object.keys(found).map(k => Object.assign({ fbKey: k }, found[k])).sort((a, b) => (b.id || 0) - (a.id || 0));
