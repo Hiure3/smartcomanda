@@ -2,6 +2,9 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SmartComanda - Padaria & Confeitaria Digital</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -139,11 +142,11 @@
                         <i class="fa-solid fa-magnifying-glass"></i><span>Buscar</span>
                     </button>
                 </div>
-                <p class="text-[10px] text-slate-400">As encomendas feitas neste aparelho aparecem sozinhas. Digite o WhatsApp usado na encomenda para ver as outras.</p>
+                <p class="text-[10px] text-slate-400">Aqui aparecem somente as encomendas feitas na comanda ativa desta mesa. Encomendas de clientes anteriores nunca são exibidas. <span class="text-slate-600">(v6)</span></p>
 
                 <p x-show="trackLoading" class="text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Atualizando...</p>
                 <template x-if="!trackLoading && myEncomendas.length === 0">
-                    <p class="text-center text-slate-500 italic py-6">Nenhuma encomenda encontrada.</p>
+                    <p class="text-center text-slate-500 italic py-6" x-text="hasActiveSession ? 'Nenhuma encomenda encontrada nesta comanda.' : 'Nenhuma comanda ativa nesta mesa no momento.'"></p>
                 </template>
 
                 <template x-for="e in myEncomendas" :key="e.fbKey">
@@ -546,6 +549,7 @@
                 trackTimer: null,
                 trackSteps: ['Recebida', 'Em produção', 'Pronta', 'Entregue'],
                 sid: '',               // identificador da sessão (comanda) - vem da mesa ou do QR Code
+                urlSid: '',            // sessão do QR/link que abriu esta página
                 tableChecked: false,   // já consultou a mesa pelo menos uma vez
                 alreadyRated: false,
                 submittingRating: false,
@@ -623,10 +627,13 @@
                     if(urlParams.get('tempo')) this.satTime = decodeURIComponent(urlParams.get('tempo'));
                     if(urlParams.get('total')) this.total = parseFloat(urlParams.get('total')) || 0;
                     if(urlParams.get('sid')) {
+                        this.urlSid = urlParams.get('sid');   // sessão (cliente) para a qual este link/QR foi gerado
                         this.sid = urlParams.get('sid');
                         try { localStorage.setItem('sc_sid_mesa_' + this.tableNumber, this.sid); } catch(e) {}
                     }
-                    try { this.myEncCount = this.myEncKeys().length; this.trackWhatsapp = localStorage.getItem('sc_my_whatsapp') || ''; } catch(e) {}
+                    // As encomendas agora são individuais por comanda/cliente: apaga a lista global antiga (compartilhada entre clientes)
+                    try { localStorage.removeItem('sc_my_enc'); localStorage.removeItem('sc_my_whatsapp'); } catch(e) {}
+                    this.myEncCount = this.myEncKeys().length;
                     if(urlParams.get('itens')) {
                         try { const it = JSON.parse(urlParams.get('itens')); if (Array.isArray(it)) this.items = it; } catch(e) {}
                     }
@@ -729,8 +736,17 @@
                                 }
 
                                 if(tableFound) {
+                                    // A mesa agora pertence a OUTRO cliente (sessão diferente da deste link/QR):
+                                    // esta página encerra e não mostra nada do cliente atual (nem encomendas).
+                                    if (tableFound.status === 'ocupada' && tableFound.sessionId && this.urlSid && this.urlSid !== tableFound.sessionId) {
+                                        this.endSessionLocal();
+                                        this.previousStatus = tableFound.status;
+                                        this.tableChecked = true;
+                                        return;
+                                    }
                                     if(this.previousStatus === 'ocupada' && tableFound.status === 'livre') {
                                         this.sessionEnded = true; // comanda deste cliente foi encerrada
+                                        this.resetEncomendaSession();
                                         if (this.finalizing) {    // foi este celular que pediu para finalizar
                                             this.finalizing = false;
                                             this.finalizeNotice = '';
@@ -743,7 +759,10 @@
 
                                     // guarda o identificador da sessão enquanto a mesa está aberta (serve para a avaliação única)
                                     if (tableFound.status === 'ocupada' && tableFound.sessionId && this.sid !== tableFound.sessionId) {
+                                        const trocou = !!this.sid;
                                         this.sid = tableFound.sessionId;
+                                        if (trocou) this.resetEncomendaSession(this.sid);   // trocou o cliente da comanda: zera tudo das encomendas
+                                        this.myEncCount = this.myEncKeys().length;
                                         try { localStorage.setItem('sc_sid_mesa_' + this.tableNumber, this.sid); } catch(e) {}
                                     }
                                     this.tableChecked = true;
@@ -1053,12 +1072,40 @@
                 },
 
                 // ===== Acompanhar encomendas =====
-                myEncKeys() { try { return JSON.parse(localStorage.getItem('sc_my_enc') || '[]'); } catch (e) { return []; } },
+                // Comanda (cliente) ativa na mesa neste momento
+                get hasActiveSession() { return !!this.sid && this.tableOpen && !this.sessionEnded; },
+                // Chave de armazenamento individual por sessão: um cliente nunca enxerga as encomendas do anterior
+                encStoreKey() { return 'sc_my_enc_' + this.sid; },
+                myEncKeys() {
+                    if (!this.sid) return [];
+                    try { return JSON.parse(localStorage.getItem(this.encStoreKey()) || '[]'); } catch (e) { return []; }
+                },
                 saveMyEncKey(key) {
+                    if (!this.sid) return;
                     const list = this.myEncKeys();
                     if (!list.includes(key)) list.push(key);
-                    try { localStorage.setItem('sc_my_enc', JSON.stringify(list.slice(-30))); } catch (e) {}
+                    try { localStorage.setItem(this.encStoreKey(), JSON.stringify(list.slice(-30))); } catch (e) {}
                     this.myEncCount = list.length;
+                },
+                // Limpa tudo que é da comanda anterior (lista, busca, carrinho e campos da encomenda)
+                resetEncomendaSession(keepSid) {
+                    try {
+                        const keep = keepSid ? 'sc_my_enc_' + keepSid : '';
+                        Object.keys(localStorage).forEach(k => { if (k.indexOf('sc_my_enc_') === 0 && k !== keep) localStorage.removeItem(k); });
+                    } catch (e) {}
+                    this.myEncomendas = [];
+                    this.myEncCount = 0;
+                    this.trackWhatsapp = '';
+                    this.encWhatsapp = '';
+                    this.encDescription = '';
+                    this.cartPadaria = {};
+                    this.closeTrack();
+                },
+                // Este link/QR pertence a uma comanda que já terminou (mesa passou para outro cliente)
+                endSessionLocal() {
+                    this.sessionEnded = true;
+                    this.tableOpen = false;
+                    this.resetEncomendaSession();
                 },
                 stepIndex(st) { const i = this.trackSteps.indexOf(st === 'Pronta para retirada' ? 'Pronta' : (st || 'Recebida')); return i < 0 ? 0 : i; },
                 statusClass(st) {
@@ -1079,31 +1126,43 @@
                 },
                 closeTrack() { this.showTrackModal = false; clearInterval(this.trackTimer); },
                 async loadMyEncomendas(silent) {
+                    const sid = this.sid;
+                    // Sem comanda ativa nesta mesa: não mostra nada (nunca traz dados de cliente anterior)
+                    if (!sid || !this.hasActiveSession) {
+                        this.myEncomendas = []; this.myEncCount = 0; this.trackLoading = false;
+                        return;
+                    }
                     if (!silent) this.trackLoading = true;
                     const found = {};
                     for (const k of this.myEncKeys()) {
                         try {
                             const r = await fetch(`${SC_DB}/encomendas/${k}.json`, { cache: 'no-store' });
-                            if (r.ok) { const d = await r.json(); if (d) found[k] = d; }
+                            if (r.ok) { const d = await r.json(); if (d && d.sessionId === sid) found[k] = d; }
                         } catch (e) {}
                     }
                     const dg = String(this.trackWhatsapp || '').replace(/\D/g, '');
                     if (dg.length >= 8) {
-                        try { localStorage.setItem('sc_my_whatsapp', this.trackWhatsapp); } catch (e) {}
                         try {
                             const q = `${SC_DB}/encomendas.json?orderBy=${encodeURIComponent('"whatsappDigits"')}&equalTo=${encodeURIComponent('"' + dg + '"')}`;
                             const r = await fetch(q, { cache: 'no-store' });
                             if (r.ok) {
                                 const d = await r.json();
-                                Object.keys(d || {}).forEach(k => { found[k] = d[k]; });
+                                // só entram encomendas feitas NESTA comanda (mesmo WhatsApp de outro cliente/sessão é ignorado)
+                                Object.keys(d || {}).forEach(k => { if (d[k] && d[k].sessionId === sid) found[k] = d[k]; });
                             }
                         } catch (e) {}
                     }
+                    if (sid !== this.sid || !this.hasActiveSession) { this.trackLoading = false; return; }   // cliente mudou durante a busca
                     this.myEncomendas = Object.keys(found).map(k => Object.assign({ fbKey: k }, found[k])).sort((a, b) => (b.id || 0) - (a.id || 0));
+                    this.myEncCount = this.myEncomendas.length;
                     this.trackLoading = false;
                 },
 
                 async submitPadariaEncomenda() {
+                    if(!this.hasActiveSession) {
+                        alert('Não há uma comanda ativa nesta mesa. Peça ao atendente para abrir a sua comanda e tente novamente.');
+                        return;
+                    }
                     if(!this.encName || !this.encWhatsapp) {
                         alert('Por favor, informe seu Nome e WhatsApp para a encomenda!');
                         return;
@@ -1136,6 +1195,8 @@
                         orderNumber: orderNumber,
                         orderCode: 'PEDIDO:' + String(orderNumber).padStart(2, '0'),
                         client: this.encName,
+                        sessionId: this.sid,          // vincula a encomenda ao cliente ativo da mesa
+                        mesa: this.tableNumber,
                         whatsapp: this.encWhatsapp,
                         whatsappDigits: String(this.encWhatsapp).replace(/\D/g, ''),
                         date: this.encDate,
@@ -1157,7 +1218,6 @@
                         if (!res.ok) throw new Error('HTTP ' + res.status);
                         const j = await res.json();
                         if (j && j.name) this.saveMyEncKey(j.name);
-                        try { localStorage.setItem('sc_my_whatsapp', this.encWhatsapp); } catch (e) {}
                         this.trackWhatsapp = this.encWhatsapp;
                         this.triggerSuccessNotification('Encomenda enviada: ' + encomendaData.orderCode);
                         alert('Sua encomenda foi enviada! Código do pedido: ' + encomendaData.orderCode + '\n\nVocê pode acompanhar o andamento em "Acompanhar minhas encomendas".');

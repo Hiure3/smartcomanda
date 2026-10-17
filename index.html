@@ -157,6 +157,10 @@
                 <span>CRM & Acessos</span>
                 <span x-show="getTodayBirthdayCount() > 0" class="absolute -top-1 -right-1 bg-pink-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold animate-bounce" x-text="getTodayBirthdayCount()"></span>
             </button>
+            <button x-show="hasAccess('exclusoes')" @click="activeTab = 'exclusoes'; syncExclusoesFromCloud()" :class="activeTab === 'exclusoes' ? 'bg-red-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-3.5 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 relative">
+                <i class="fa-solid fa-trash-can"></i>
+                <span>Exclusões</span>
+            </button>
         </div>
 
         <!-- Colaborador Logado & Botões de Ação Global -->
@@ -1334,6 +1338,53 @@
             </div>
         </div>
 
+        <!-- TELA 6: REGISTRO DE EXCLUSÕES (AUDITORIA - SOMENTE GERENTE) -->
+        <div x-show="activeTab === 'exclusoes'" class="h-full flex flex-col p-6 overflow-y-auto space-y-4">
+            <div class="flex flex-wrap justify-between items-center gap-3">
+                <div>
+                    <h2 class="text-xl font-bold text-white flex items-center space-x-2"><i class="fa-solid fa-trash-can text-red-400"></i><span>Registro de Exclusões</span></h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Tudo o que é excluído no sistema fica registrado aqui: o que foi, quem excluiu e quando. Este registro não pode ser apagado.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-bold px-3 py-1.5 rounded-xl" x-text="exclusoesFiltradas().length + ' registro(s)'"></span>
+                    <button @click="syncExclusoesFromCloud()" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5"><i class="fa-solid fa-rotate"></i><span>Atualizar</span></button>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+                <input type="text" x-model="exclBusca" placeholder="Buscar por nome, usuário, mesa, código..." class="flex-1 min-w-[220px] bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500">
+                <select x-model="exclFiltroTipo" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500">
+                    <option value="Todos">Todos os tipos</option>
+                    <template x-for="t in exclTipos()" :key="t"><option :value="t" x-text="t"></option></template>
+                </select>
+            </div>
+
+            <div class="bg-slate-900/60 border border-slate-700 rounded-2xl overflow-hidden">
+                <template x-if="exclusoesFiltradas().length === 0">
+                    <p class="text-center text-slate-500 italic py-10 text-sm">Nenhuma exclusão registrada.</p>
+                </template>
+                <div class="divide-y divide-slate-800">
+                    <template x-for="r in exclusoesFiltradas()" :key="r.id">
+                        <div class="p-3.5 flex gap-3 items-start hover:bg-slate-800/40">
+                            <div class="w-9 h-9 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-center shrink-0"><i class="fa-solid fa-trash-can text-sm"></i></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-red-500/10 text-red-300 border border-red-500/30" x-text="r.tipo"></span>
+                                    <span class="text-sm font-bold text-white" x-text="r.descricao"></span>
+                                </div>
+                                <p x-show="r.detalhes" class="text-xs text-slate-300 mt-1 break-words" x-text="r.detalhes"></p>
+                                <p class="text-[11px] text-slate-400 mt-1">
+                                    <i class="fa-solid fa-user mr-1"></i><span x-text="(r.usuario || 'Desconhecido') + (r.cargo ? ' (' + r.cargo + ')' : '')"></span>
+                                    <span class="mx-1">•</span>
+                                    <i class="fa-regular fa-clock mr-1"></i><span x-text="fmtDateTime(r.ts)"></span>
+                                </p>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
         <!-- TELA 5: CRM & CLIENTES FIDELIDADE (ANIVERSARIANTES E VISITAS) -->
         <div x-show="activeTab === 'crm'" class="h-full flex flex-col p-6 overflow-y-auto space-y-6">
             <div class="flex justify-between items-center">
@@ -2179,6 +2230,10 @@
                 finalizeToast: '',
                 // --- Histórico de atendimentos finalizados ---
                 historyLog: [],
+                // --- Registro de exclusões (auditoria) ---
+                exclusoesLog: [],
+                exclBusca: '',
+                exclFiltroTipo: 'Todos',
                 showHistoryModal: false,
                 historyView: { title: '', mode: 'mesa', mesa: null, client: null },
                 // --- Edição de encomendas ---
@@ -2543,6 +2598,8 @@
                 
                 async deleteEncomenda(enc) {
                     if(!confirm(`Deseja realmente excluir definitivamente a encomenda de ${enc.client} (${enc.orderCode || 'Encomenda'})?`)) return;
+                    this.logExclusao('Encomenda', `${enc.orderCode || 'Encomenda'} - ${enc.client || 'Cliente'}`,
+                        `Retirada: ${enc.date || '--'} ${enc.time || ''} | Total: R$ ${Number(enc.totalValue || 0).toFixed(2)} | Status: ${enc.status || 'Recebida'} | Itens: ${enc.itemsDescription || 'sem detalhes'}${enc.mesa ? ' | Mesa ' + enc.mesa : ''}`);
                     
                     // Remover do array local imediatamente
                     this.encomendasDashboard = this.encomendasDashboard.filter(e => {
@@ -2842,6 +2899,7 @@
                     }, 1000);
 
                     this.loadHistory();
+                    this.loadExclusoes();
                     this.backupBoot(wasEmpty);
                 },
 
@@ -3047,8 +3105,59 @@
                 },
                 encRemoveItem(it) {
                     const enc = this.selectedEncomenda; if (!enc) return;
+                    this.logExclusao('Item de encomenda', `${Math.max(1, it.qty || 1)}x ${it.name} - ${enc.orderCode || 'Encomenda'}`,
+                        `Cliente: ${enc.client || '--'} | Valor do item: R$ ${(Number(it.qty || 1) * Number(it.price || 0)).toFixed(2)}`);
                     enc.itemsList = (enc.itemsList || []).filter(x => x !== it);
                     this.encRecalc(enc); this.encPersist(enc);
+                },
+
+                // ===== Registro de exclusões (auditoria) =====
+                loadExclusoes() {
+                    try { const s = localStorage.getItem('smartcomanda_exclusoes_v8'); if (s) this.exclusoesLog = JSON.parse(s) || []; } catch (e) {}
+                    this.syncExclusoesFromCloud();
+                },
+                saveExclusoesLocal() { try { localStorage.setItem('smartcomanda_exclusoes_v8', JSON.stringify(this.exclusoesLog.slice(0, 2000))); } catch (e) {} },
+                // Chame sempre que algo for excluído: tipo (ex.: 'Encomenda'), descricao (o que foi) e detalhes (informações extras)
+                logExclusao(tipo, descricao, detalhes) {
+                    let id = Date.now();
+                    if (id <= (this._lastExclId || 0)) id = this._lastExclId + 1;
+                    this._lastExclId = id;
+                    const rec = {
+                        id: id, ts: id,
+                        tipo: tipo || 'Outro',
+                        descricao: descricao || '',
+                        detalhes: detalhes || '',
+                        usuario: (this.currentUser && this.currentUser.name) || 'Desconhecido',
+                        cargo: (this.currentUser && this.currentUser.role) || ''
+                    };
+                    this.exclusoesLog.unshift(rec);
+                    this.saveExclusoesLocal();
+                    fetch(`${SC_DB}/exclusoes/${rec.id}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(() => {});
+                },
+                async syncExclusoesFromCloud() {
+                    try {
+                        const r = await fetch(`${SC_DB}/exclusoes.json`, { cache: 'no-store' });
+                        if (!r.ok) return;
+                        const d = (await r.json()) || {};
+                        const local = new Set(this.exclusoesLog.map(x => x.id));
+                        let added = false;
+                        Object.keys(d).forEach(k => { const x = d[k]; if (x && !local.has(x.id)) { this.exclusoesLog.push(x); added = true; } });
+                        if (added) { this.exclusoesLog.sort((a, b) => b.ts - a.ts); this.saveExclusoesLocal(); }
+                        const cloud = new Set(Object.values(d).map(x => x && x.id));
+                        for (const x of this.exclusoesLog) {
+                            if (!cloud.has(x.id)) await fetch(`${SC_DB}/exclusoes/${x.id}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(x) });
+                        }
+                    } catch (e) {}
+                },
+                exclTipos() { return Array.from(new Set(this.exclusoesLog.map(r => r.tipo))).sort(); },
+                exclusoesFiltradas() {
+                    const n = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+                    const q = n(this.exclBusca).trim();
+                    return this.exclusoesLog.filter(r => {
+                        if (this.exclFiltroTipo !== 'Todos' && r.tipo !== this.exclFiltroTipo) return false;
+                        if (!q) return true;
+                        return n([r.tipo, r.descricao, r.detalhes, r.usuario, r.cargo, this.fmtDateTime(r.ts)].join(' ')).indexOf(q) >= 0;
+                    });
                 },
 
                 // ===== Histórico de atendimentos finalizados =====
@@ -3650,6 +3759,8 @@
                 removeItemFromTable(table, item) {
                     this.playAudioAlert('remove');
                     if(!confirm(`Deseja remover ${item.name} da Mesa ${table.number}?`)) return;
+                    this.logExclusao('Item da comanda', `${item.qty || 1}x ${item.name} - Mesa ${table.number}`,
+                        `Cliente: ${table.client || '--'} | Valor do item: R$ ${(Number(item.qty || 1) * Number(item.price || 0)).toFixed(2)}`);
                     table.items = table.items.filter(i => i.id !== item.id);
                     this.recalcTableTotal(table);
 
@@ -4009,6 +4120,7 @@ exportLiveExcel() {
                 },
                 deleteClient(client) {
                     if(!confirm(`Deseja remover o cliente ${client.name} da base?`)) return;
+                    this.logExclusao('Cliente (CRM)', client.name || 'Cliente', `WhatsApp: ${client.whatsapp || '--'} | E-mail: ${client.email || '--'}`);
                     this.clientsDatabase = this.clientsDatabase.filter(c => c.id !== client.id);
                     localStorage.setItem('smartcomanda_clients_v8', JSON.stringify(this.clientsDatabase));
                 },
@@ -4038,6 +4150,7 @@ exportLiveExcel() {
                 },
                 hasAccess(tabName) {
                     if(!this.currentUser) return false;
+                    if(tabName === 'exclusoes') return this.currentUser.role === 'Gerente';   // auditoria: só o gerente vê
                     if(!this.currentUser.allowedTabs) return true;
                     return this.currentUser.allowedTabs.includes(tabName);
                 },
@@ -4088,6 +4201,7 @@ exportLiveExcel() {
                 deleteStaff(staff) {
                     if(staff.user === 'admin') return alert('Não é possível excluir o administrador padrão.');
                     if(!confirm(`Deseja remover o colaborador ${staff.name}?`)) return;
+                    this.logExclusao('Colaborador', staff.name || 'Colaborador', `Usuário: ${staff.user || '--'} | Cargo: ${staff.role || '--'}`);
                     this.staffDatabase = this.staffDatabase.filter(s => s.id !== staff.id);
                     localStorage.setItem('smartcomanda_staff_v8', JSON.stringify(this.staffDatabase));
                 },
