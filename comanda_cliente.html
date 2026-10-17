@@ -211,50 +211,78 @@
                 </div>
             </div>
 
-            <!-- Avaliação da Experiência -->
+            <!-- Finalizar Pedido (mesmo efeito do botão "Finalizar & Gerar QR Code" do PC) -->
+            <template x-if="!finalized">
+                <div class="space-y-2">
+                    <button @click="finalizeOrder()" :disabled="finalizing" class="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-white py-3 px-3 rounded-xl text-sm font-bold shadow-lg transition-all flex items-center justify-center space-x-2">
+                        <i class="fa-solid text-lg" :class="finalizing ? 'fa-spinner fa-spin' : 'fa-qrcode'"></i>
+                        <span x-text="finalizing ? 'Finalizando pedido...' : 'Finalizar Pedido'"></span>
+                    </button>
+                    <p x-show="finalizeNotice" x-cloak class="text-[11px] text-amber-400 text-center leading-snug" x-text="finalizeNotice"></p>
+                </div>
+            </template>
+            <template x-if="finalized">
+                <div class="bg-emerald-500/10 border border-emerald-500/30 p-3 rounded-xl text-center text-xs font-bold text-emerald-300 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-circle-check text-base"></i>
+                    <span>Pedido finalizado. Obrigado pela visita!</span>
+                </div>
+            </template>
+
+            <!-- Avaliação da Experiência (libera após finalizar; uma única vez por comanda) -->
             <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-700/80 space-y-3 text-xs">
                 <p class="font-bold text-amber-400 text-center flex items-center justify-center space-x-1.5">
                     <i class="fa-solid fa-star"></i>
                     <span>Avalie sua Experiência</span>
                 </p>
 
-                <!-- Atendimento -->
-                <div class="space-y-1">
-                    <div class="flex justify-between">
-                        <span class="text-slate-300">Atendimento:</span>
-                        <span class="text-amber-400 font-bold" x-text="`${ratingService} / 5`"></span>
-                    </div>
-                    <div class="flex justify-center space-x-1.5">
-                        <template x-for="star in [1,2,3,4,5]" :key="'srv-'+star">
-                            <button @click="ratingService = star" class="text-lg focus:outline-none transition-transform hover:scale-125">
-                                <i class="fa-star" :class="star <= ratingService ? 'fa-solid text-amber-400' : 'fa-regular text-slate-600'"></i>
-                            </button>
-                        </template>
-                    </div>
-                </div>
+                <p x-show="!finalized" x-cloak class="text-center text-slate-400 text-[11px] flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-lock"></i>
+                    <span>Finalize o pedido acima para liberar a avaliação.</span>
+                </p>
+                <p x-show="alreadyRated" x-cloak class="text-center text-emerald-400 font-bold text-[11px] flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>Você já avaliou esta comanda. Obrigado!</span>
+                </p>
 
-                <!-- Alimento -->
-                <div class="space-y-1 pt-2 border-t border-slate-800">
-                    <div class="flex justify-between">
-                        <span class="text-slate-300">Qualidade dos Produtos:</span>
-                        <span class="text-amber-400 font-bold" x-text="`${ratingFood} / 5`"></span>
+                <fieldset :disabled="!canRate || submittingRating" :class="canRate ? '' : 'opacity-50'" class="space-y-3 min-w-0 border-0 p-0 m-0">
+                    <!-- Atendimento -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between">
+                            <span class="text-slate-300">Qualidade do Atendimento:</span>
+                            <span class="text-amber-400 font-bold" x-text="`${ratingService} / 5`"></span>
+                        </div>
+                        <div class="flex justify-center space-x-1.5">
+                            <template x-for="star in [1,2,3,4,5]" :key="'srv-'+star">
+                                <button @click="ratingService = star" class="text-lg focus:outline-none transition-transform hover:scale-125">
+                                    <i class="fa-star" :class="star <= ratingService ? 'fa-solid text-amber-400' : 'fa-regular text-slate-600'"></i>
+                                </button>
+                            </template>
+                        </div>
                     </div>
-                    <div class="flex justify-center space-x-1.5">
-                        <template x-for="star in [1,2,3,4,5]" :key="'food-'+star">
-                            <button @click="ratingFood = star" class="text-lg focus:outline-none transition-transform hover:scale-125">
-                                <i class="fa-star" :class="star <= ratingFood ? 'fa-solid text-amber-400' : 'fa-regular text-slate-600'"></i>
-                            </button>
-                        </template>
+
+                    <!-- Produtos -->
+                    <div class="space-y-1 pt-2 border-t border-slate-800">
+                        <div class="flex justify-between">
+                            <span class="text-slate-300">Qualidade dos Produtos:</span>
+                            <span class="text-amber-400 font-bold" x-text="`${ratingFood} / 5`"></span>
+                        </div>
+                        <div class="flex justify-center space-x-1.5">
+                            <template x-for="star in [1,2,3,4,5]" :key="'food-'+star">
+                                <button @click="ratingFood = star" class="text-lg focus:outline-none transition-transform hover:scale-125">
+                                    <i class="fa-star" :class="star <= ratingFood ? 'fa-solid text-amber-400' : 'fa-regular text-slate-600'"></i>
+                                </button>
+                            </template>
+                        </div>
                     </div>
-                </div>
 
-                <div class="pt-1">
-                    <input type="text" x-model="feedbackComment" placeholder="Deixe seu comentário ou sugestão..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
-                </div>
+                    <div class="pt-1">
+                        <input type="text" x-model="feedbackComment" placeholder="Deixe seu comentário ou sugestão..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+                    </div>
 
-                <button @click="submitFeedback()" class="w-full bg-amber-600 hover:bg-amber-500 text-white py-2.5 rounded-xl font-bold transition-all shadow">
-                    Enviar Avaliação
-                </button>
+                    <button @click="submitFeedback()" class="w-full bg-amber-600 hover:bg-amber-500 disabled:cursor-not-allowed text-white py-2.5 rounded-xl font-bold transition-all shadow"
+                            x-text="alreadyRated ? 'Avaliação já enviada' : (submittingRating ? 'Enviando...' : 'Enviar Avaliação')">
+                    </button>
+                </fieldset>
             </div>
         </div>
 
@@ -424,6 +452,14 @@
                 ratingService: 5,
                 ratingFood: 5,
                 feedbackComment: '',
+                // Finalização pelo celular + avaliação única
+                finalizing: false,
+                finalizeNotice: '',
+                sid: '',               // identificador da sessão (comanda) - vem da mesa ou do QR Code
+                tableChecked: false,   // já consultou a mesa pelo menos uma vez
+                alreadyRated: false,
+                submittingRating: false,
+                _ratedChecked: '',
                 showSuccessNotification: false,
                 notificationText: 'Pedido finalizado com sucesso!',
                 notificationIcon: 'fa-circle-check',
@@ -496,6 +532,13 @@
                     }
                     if(urlParams.get('tempo')) this.satTime = decodeURIComponent(urlParams.get('tempo'));
                     if(urlParams.get('total')) this.total = parseFloat(urlParams.get('total')) || 0;
+                    if(urlParams.get('sid')) {
+                        this.sid = urlParams.get('sid');
+                        try { localStorage.setItem('sc_sid_mesa_' + this.tableNumber, this.sid); } catch(e) {}
+                    }
+                    if(urlParams.get('itens')) {
+                        try { const it = JSON.parse(urlParams.get('itens')); if (Array.isArray(it)) this.items = it; } catch(e) {}
+                    }
 
                     // Data padrão amanhã
                     const tomorrow = new Date();
@@ -596,11 +639,27 @@
 
                                 if(tableFound) {
                                     if(this.previousStatus === 'ocupada' && tableFound.status === 'livre') {
-                                        this.sessionEnded = true; // comanda deste cliente foi encerrada (sem notificação)
+                                        this.sessionEnded = true; // comanda deste cliente foi encerrada
+                                        if (this.finalizing) {    // foi este celular que pediu para finalizar
+                                            this.finalizing = false;
+                                            this.finalizeNotice = '';
+                                            this.triggerSuccessNotification('Pedido finalizado com sucesso!');
+                                        }
                                     }
                                     this.tableOpen = (tableFound.status === 'ocupada');
 
                                     this.previousStatus = tableFound.status;
+
+                                    // guarda o identificador da sessão enquanto a mesa está aberta (serve para a avaliação única)
+                                    if (tableFound.status === 'ocupada' && tableFound.sessionId && this.sid !== tableFound.sessionId) {
+                                        this.sid = tableFound.sessionId;
+                                        try { localStorage.setItem('sc_sid_mesa_' + this.tableNumber, this.sid); } catch(e) {}
+                                    }
+                                    this.tableChecked = true;
+                                    if (this.finalized && this._ratedChecked !== this.ratingSid) {
+                                        this._ratedChecked = this.ratingSid;
+                                        this.refreshRatedState();
+                                    }
 
                                     if(tableFound.status === 'ocupada') {
                                         this.clientName = tableFound.client || 'Mesa Ocupada';
@@ -754,9 +813,102 @@
                     }
                 },
 
+                // ===== Finalização do pedido pelo celular =====
+                get finalized() { return this.sessionEnded || (this.tableChecked && !this.tableOpen); },
+                get canRate() { return this.finalized && !this.alreadyRated; },
+                get ratingSid() {
+                    if (this.sid) return this.sid;
+                    let s = '';
+                    try { s = localStorage.getItem('sc_sid_mesa_' + this.tableNumber) || ''; } catch(e) {}
+                    if (s) return s;
+                    // link antigo sem identificador: gera uma chave estável com mesa + cliente + total + tempo
+                    const raw = this.tableNumber + '|' + (this.clientName || '') + '|' + Number(this.total || 0).toFixed(2) + '|' + this.satTime;
+                    let hsh = 5381;
+                    for (let i = 0; i < raw.length; i++) hsh = ((hsh << 5) + hsh + raw.charCodeAt(i)) | 0;
+                    return 'x' + this.tableNumber + '_' + Math.abs(hsh).toString(36);
+                },
+
+                async finalizeOrder() {
+                    if (this.finalizing || this.finalized) return;
+                    const pendentes = (this.items || []).some(i => i.status && i.status !== 'Pronto');
+                    const msg = pendentes
+                        ? 'Ainda há itens em preparo na sua comanda. Deseja finalizar o pedido mesmo assim?'
+                        : 'Deseja finalizar seu pedido e fechar a comanda da Mesa ' + this.tableNumber + '?';
+                    if (!confirm(msg)) return;
+                    this.finalizing = true;
+                    this.finalizeNotice = '';
+                    const req = {
+                        mesa: this.tableNumber,
+                        sid: this.sid || '',
+                        client: this.clientName || '',
+                        total: this.total || 0,
+                        ts: Date.now(),
+                        source: 'celular'
+                    };
+                    try {
+                        // o PC da loja recebe este pedido e executa o mesmo "Finalizar" do botão dele
+                        const res = await fetch(`${SC_DB}/finalizar_pedidos/mesa_${this.tableNumber}.json`, {
+                            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req)
+                        });
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        this.finalizeNotice = 'Pedido enviado ao caixa. Aguarde a confirmação...';
+                        this.fetchTableData();
+                        setTimeout(() => {
+                            if (this.finalizing && !this.finalized) {
+                                this.finalizing = false;
+                                this.finalizeNotice = 'O caixa ainda não confirmou. Se demorar, chame o atendente. Você pode tocar em "Finalizar Pedido" para tentar de novo.';
+                            }
+                        }, 30000);
+                    } catch (e) {
+                        this.finalizing = false;
+                        this.finalizeNotice = 'Não foi possível enviar agora. Verifique sua internet e tente novamente.';
+                    }
+                },
+
+                // ===== Avaliação: uma única vez por comanda =====
+                async refreshRatedState() {
+                    const sid = this.ratingSid;
+                    try {
+                        const local = localStorage.getItem('sc_rated_' + sid);
+                        if (local) { this.markRated(sid, JSON.parse(local)); return; }
+                    } catch (e) {}
+                    try {
+                        const r = await fetch(`${SC_DB}/avaliacoes_sessao/${encodeURIComponent(sid)}.json`, { cache: 'no-store' });
+                        if (r.ok) {
+                            const d = await r.json();
+                            if (d) this.markRated(sid, d);
+                        }
+                    } catch (e) {}
+                },
+                markRated(sid, info) {
+                    this.alreadyRated = true;
+                    if (info && info.service) this.ratingService = info.service;
+                    if (info && info.food) this.ratingFood = info.food;
+                    try { localStorage.setItem('sc_rated_' + sid, JSON.stringify({ service: this.ratingService, food: this.ratingFood, at: Date.now() })); } catch (e) {}
+                },
+                // Reserva a avaliação desta comanda no Firebase. Só quem chega primeiro consegue (if-match: null_etag).
+                async claimRating(sid, payload) {
+                    const url = `${SC_DB}/avaliacoes_sessao/${encodeURIComponent(sid)}.json`;
+                    try {
+                        const r = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'if-match': 'null_etag' }, body: JSON.stringify(payload) });
+                        if (r.status === 412) return 'exists';
+                        if (r.ok) return 'ok';
+                    } catch (e) { /* cai para o método alternativo abaixo */ }
+                    const g = await fetch(url, { cache: 'no-store' });
+                    if (!g.ok) throw new Error('HTTP ' + g.status);
+                    if ((await g.json()) !== null) return 'exists';
+                    const p = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!p.ok) throw new Error('HTTP ' + p.status);
+                    return 'ok';
+                },
+
                 async submitFeedback() {
+                    if (!this.canRate || this.submittingRating) return;
+                    this.submittingRating = true;
+                    const sid = this.ratingSid;
                     const fb = {
                         id: Date.now(),
+                        sid: sid,
                         table: this.tableNumber,
                         client: this.clientName || 'Cliente',
                         service: this.ratingService,
@@ -766,17 +918,31 @@
                         comment: this.feedbackComment || 'Sem comentários',
                         time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                     };
-
+                    const lockUrl = `${SC_DB}/avaliacoes_sessao/${encodeURIComponent(sid)}.json`;
                     try {
-                        await fetch('https://smartcomanda-df58e-default-rtdb.firebaseio.com/feedbacks.json', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(fb)
-                        });
-                        this.triggerSuccessNotification('Avaliação enviada com sucesso!');
+                        const lock = await this.claimRating(sid, { id: fb.id, service: fb.service, food: fb.food, ts: Date.now() });
+                        if (lock === 'exists') {
+                            this.markRated(sid, null);
+                            this.triggerSuccessNotification('Esta comanda já foi avaliada. Obrigado!', 'fa-star');
+                            return;
+                        }
+                        try {
+                            const res = await fetch(`${SC_DB}/feedbacks.json`, {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fb)
+                            });
+                            if (!res.ok) throw new Error('HTTP ' + res.status);
+                        } catch (e) {
+                            // não conseguiu gravar a avaliação: libera a reserva para o cliente tentar de novo
+                            try { await fetch(lockUrl, { method: 'DELETE' }); } catch (e2) {}
+                            throw e;
+                        }
+                        this.markRated(sid, { service: fb.service, food: fb.food });
                         this.feedbackComment = '';
-                    } catch(e) {
-                        this.triggerSuccessNotification('Avaliação registrada!');
+                        this.triggerSuccessNotification('Avaliação enviada com sucesso!');
+                    } catch (e) {
+                        this.triggerSuccessNotification('Não foi possível enviar. Tente novamente.', 'fa-triangle-exclamation');
+                    } finally {
+                        this.submittingRating = false;
                     }
                 },
 
