@@ -121,6 +121,82 @@
         </div>
     </div>
 
+    <!-- MODAL: ACOMPANHAR MINHAS ENCOMENDAS -->
+    <div x-show="showTrackModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+            <div class="bg-slate-900 p-3.5 border-b border-slate-700 flex justify-between items-center">
+                <h4 class="font-bold text-sm text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-clipboard-list text-indigo-400"></i>
+                    <span>Minhas Encomendas</span>
+                </h4>
+                <button @click="closeTrack()" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="p-3.5 space-y-3 overflow-y-auto text-xs">
+                <div class="flex gap-2">
+                    <input type="tel" x-model="trackWhatsapp" @keydown.enter="loadMyEncomendas()" placeholder="Seu WhatsApp (ex: 11999999999)" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    <button @click="loadMyEncomendas()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl font-bold flex items-center space-x-1">
+                        <i class="fa-solid fa-magnifying-glass"></i><span>Buscar</span>
+                    </button>
+                </div>
+                <p class="text-[10px] text-slate-400">As encomendas feitas neste aparelho aparecem sozinhas. Digite o WhatsApp usado na encomenda para ver as outras.</p>
+
+                <p x-show="trackLoading" class="text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Atualizando...</p>
+                <template x-if="!trackLoading && myEncomendas.length === 0">
+                    <p class="text-center text-slate-500 italic py-6">Nenhuma encomenda encontrada.</p>
+                </template>
+
+                <template x-for="e in myEncomendas" :key="e.fbKey">
+                    <div class="bg-slate-900 border border-slate-700 rounded-xl p-3 space-y-2.5">
+                        <div class="flex justify-between items-center">
+                            <span class="font-mono font-extrabold text-emerald-400 text-sm" x-text="e.orderCode || 'Encomenda'"></span>
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border" :class="statusClass(e.status)" x-text="e.status || 'Recebida'"></span>
+                        </div>
+
+                        <!-- Andamento -->
+                        <div x-show="(e.status || 'Recebida') !== 'Cancelada'" class="flex items-center">
+                            <template x-for="(st, i) in trackSteps" :key="st">
+                                <div class="flex items-center" :class="i < trackSteps.length - 1 ? 'flex-1' : ''">
+                                    <div class="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black shrink-0"
+                                         :class="stepIndex(e.status) >= i ? 'bg-emerald-500 text-slate-950' : 'bg-slate-700 text-slate-400'">
+                                        <i class="fa-solid fa-check"></i>
+                                    </div>
+                                    <div x-show="i < trackSteps.length - 1" class="h-0.5 flex-1 mx-1" :class="stepIndex(e.status) > i ? 'bg-emerald-500' : 'bg-slate-700'"></div>
+                                </div>
+                            </template>
+                        </div>
+                        <div x-show="(e.status || 'Recebida') !== 'Cancelada'" class="flex justify-between text-[9px] text-slate-400 -mt-1">
+                            <template x-for="st in trackSteps" :key="'l'+st"><span x-text="st"></span></template>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 text-[11px]">
+                            <div><span class="text-slate-400 block">Retirada</span><strong class="text-amber-300" x-text="fmtDate(e.date) + ' às ' + (e.time || 'a combinar')"></strong></div>
+                            <div><span class="text-slate-400 block">Total</span><strong class="text-emerald-400" x-text="'R$ ' + Number(e.totalValue || 0).toFixed(2)"></strong></div>
+                        </div>
+
+                        <div class="bg-slate-950 border border-slate-800 rounded-lg p-2 space-y-1">
+                            <template x-if="e.itemsList && e.itemsList.length">
+                                <div class="divide-y divide-slate-800">
+                                    <template x-for="(it, ix) in e.itemsList" :key="ix">
+                                        <div class="flex justify-between py-1">
+                                            <span class="text-slate-200" x-text="it.qty + 'x ' + it.name"></span>
+                                            <span class="text-emerald-400 font-mono" x-text="'R$ ' + (it.qty * it.price).toFixed(2)"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            <template x-if="!(e.itemsList && e.itemsList.length)">
+                                <p class="text-slate-300 italic" x-text="e.itemsDescription || 'Sem detalhes'"></p>
+                            </template>
+                        </div>
+                        <p x-show="e.updatedAt" class="text-[10px] text-amber-300"><i class="fa-solid fa-pen mr-1"></i><span x-text="'Pedido ajustado pela padaria em ' + e.updatedAt"></span></p>
+                        <p class="text-[10px] text-slate-500" x-text="'Enviado em ' + (e.createdAt || '')"></p>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
     <!-- MAIN APP CONTAINER -->
     <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-5 shadow-2xl flex flex-col space-y-4">
         
@@ -296,6 +372,12 @@
                 <p class="text-[11px] text-slate-300">Escolha os produtos artesanais da nossa padaria e agende sua encomenda.</p>
             </div>
 
+            <button @click="openTrack()" class="relative w-full bg-slate-900 hover:bg-slate-700 border border-indigo-500/40 text-indigo-200 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-clipboard-list text-indigo-400"></i>
+                <span>Acompanhar minhas encomendas</span>
+                <span x-show="myEncCount > 0" x-cloak class="bg-indigo-500 text-white text-[10px] min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center font-black" x-text="myEncCount"></span>
+            </button>
+
             <!-- Seleção por Categoria de Padaria -->
             <div class="flex space-x-1.5 overflow-x-auto pb-1 text-xs">
                 <template x-for="cat in padariaCategorias" :key="cat">
@@ -455,6 +537,14 @@
                 // Finalização pelo celular + avaliação única
                 finalizing: false,
                 finalizeNotice: '',
+                // Acompanhar encomendas
+                showTrackModal: false,
+                trackWhatsapp: '',
+                trackLoading: false,
+                myEncomendas: [],
+                myEncCount: 0,
+                trackTimer: null,
+                trackSteps: ['Recebida', 'Em produção', 'Pronta', 'Entregue'],
                 sid: '',               // identificador da sessão (comanda) - vem da mesa ou do QR Code
                 tableChecked: false,   // já consultou a mesa pelo menos uma vez
                 alreadyRated: false,
@@ -536,6 +626,7 @@
                         this.sid = urlParams.get('sid');
                         try { localStorage.setItem('sc_sid_mesa_' + this.tableNumber, this.sid); } catch(e) {}
                     }
+                    try { this.myEncCount = this.myEncKeys().length; this.trackWhatsapp = localStorage.getItem('sc_my_whatsapp') || ''; } catch(e) {}
                     if(urlParams.get('itens')) {
                         try { const it = JSON.parse(urlParams.get('itens')); if (Array.isArray(it)) this.items = it; } catch(e) {}
                     }
@@ -908,6 +999,7 @@
                     const sid = this.ratingSid;
                     const fb = {
                         id: Date.now(),
+                        receivedAt: Date.now(),   // data/hora em que o sistema recebeu a avaliação
                         sid: sid,
                         table: this.tableNumber,
                         client: this.clientName || 'Cliente',
@@ -946,6 +1038,71 @@
                     }
                 },
 
+                // ===== Código sequencial da encomenda: PEDIDO:01, PEDIDO:02... (contador único no Firebase) =====
+                async nextOrderNumber() {
+                    const url = `${SC_DB}/contadores/encomenda.json`;
+                    const r = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ '.sv': { increment: 1 } }) });
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    let v = await r.json();
+                    if (typeof v !== 'number') {   // alguns servidores não devolvem o valor: lê o contador
+                        const g = await fetch(url, { cache: 'no-store' });
+                        v = g.ok ? await g.json() : null;
+                    }
+                    if (typeof v !== 'number') throw new Error('contador inválido');
+                    return v;
+                },
+
+                // ===== Acompanhar encomendas =====
+                myEncKeys() { try { return JSON.parse(localStorage.getItem('sc_my_enc') || '[]'); } catch (e) { return []; } },
+                saveMyEncKey(key) {
+                    const list = this.myEncKeys();
+                    if (!list.includes(key)) list.push(key);
+                    try { localStorage.setItem('sc_my_enc', JSON.stringify(list.slice(-30))); } catch (e) {}
+                    this.myEncCount = list.length;
+                },
+                stepIndex(st) { const i = this.trackSteps.indexOf(st === 'Pronta para retirada' ? 'Pronta' : (st || 'Recebida')); return i < 0 ? 0 : i; },
+                statusClass(st) {
+                    return ({
+                        'Recebida': 'bg-amber-500/10 text-amber-300 border-amber-500/30',
+                        'Em produção': 'bg-blue-500/10 text-blue-300 border-blue-500/30',
+                        'Pronta para retirada': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+                        'Entregue': 'bg-slate-700 text-slate-300 border-slate-600',
+                        'Cancelada': 'bg-red-500/10 text-red-300 border-red-500/30'
+                    })[st || 'Recebida'] || 'bg-slate-700 text-slate-300 border-slate-600';
+                },
+                fmtDate(d) { if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return d || '--'; const p = d.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; },
+                openTrack() {
+                    this.showTrackModal = true;
+                    this.loadMyEncomendas();
+                    clearInterval(this.trackTimer);
+                    this.trackTimer = setInterval(() => { if (this.showTrackModal) this.loadMyEncomendas(true); }, 6000);
+                },
+                closeTrack() { this.showTrackModal = false; clearInterval(this.trackTimer); },
+                async loadMyEncomendas(silent) {
+                    if (!silent) this.trackLoading = true;
+                    const found = {};
+                    for (const k of this.myEncKeys()) {
+                        try {
+                            const r = await fetch(`${SC_DB}/encomendas/${k}.json`, { cache: 'no-store' });
+                            if (r.ok) { const d = await r.json(); if (d) found[k] = d; }
+                        } catch (e) {}
+                    }
+                    const dg = String(this.trackWhatsapp || '').replace(/\D/g, '');
+                    if (dg.length >= 8) {
+                        try { localStorage.setItem('sc_my_whatsapp', this.trackWhatsapp); } catch (e) {}
+                        try {
+                            const q = `${SC_DB}/encomendas.json?orderBy=${encodeURIComponent('"whatsappDigits"')}&equalTo=${encodeURIComponent('"' + dg + '"')}`;
+                            const r = await fetch(q, { cache: 'no-store' });
+                            if (r.ok) {
+                                const d = await r.json();
+                                Object.keys(d || {}).forEach(k => { found[k] = d[k]; });
+                            }
+                        } catch (e) {}
+                    }
+                    this.myEncomendas = Object.keys(found).map(k => Object.assign({ fbKey: k }, found[k])).sort((a, b) => (b.id || 0) - (a.id || 0));
+                    this.trackLoading = false;
+                },
+
                 async submitPadariaEncomenda() {
                     if(!this.encName || !this.encWhatsapp) {
                         alert('Por favor, informe seu Nome e WhatsApp para a encomenda!');
@@ -953,11 +1110,13 @@
                     }
 
                     const selectedItemsList = [];
+                    const selectedObjs = [];
                     Object.keys(this.cartPadaria).forEach(idStr => {
                         const id = parseInt(idStr);
                         const prod = this.padariaProdutos.find(p => p.id === id);
                         if(prod) {
                             selectedItemsList.push(`${this.cartPadaria[idStr]}x ${prod.name}`);
+                            selectedObjs.push({ id: 'p' + prod.id, name: prod.name, qty: this.cartPadaria[idStr], price: prod.price });
                         }
                     });
 
@@ -968,30 +1127,43 @@
 
                     const itemsText = selectedItemsList.join(', ') + (this.encDescription ? ` (Obs: ${this.encDescription})` : '');
 
+                    let orderNumber;
+                    try { orderNumber = await this.nextOrderNumber(); }
+                    catch (e) { alert('Não foi possível gerar o número do pedido. Verifique sua internet e tente novamente.'); return; }
+
                     const encomendaData = {
                         id: Date.now(),
-                        orderCode: 'PAD-' + Math.floor(1000 + Math.random() * 9000),
+                        orderNumber: orderNumber,
+                        orderCode: 'PEDIDO:' + String(orderNumber).padStart(2, '0'),
                         client: this.encName,
                         whatsapp: this.encWhatsapp,
+                        whatsappDigits: String(this.encWhatsapp).replace(/\D/g, ''),
                         date: this.encDate,
                         time: this.encTime,
                         sector: 'Padaria & Confeitaria',
+                        status: 'Recebida',
+                        itemsList: selectedObjs,
                         itemsDescription: itemsText,
                         totalValue: this.totalPadariaEncomenda,
                         createdAt: new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                     };
 
                     try {
-                        await fetch('https://smartcomanda-df58e-default-rtdb.firebaseio.com/encomendas.json', {
+                        const res = await fetch(`${SC_DB}/encomendas.json`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(encomendaData)
                         });
-                        this.triggerSuccessNotification('Encomenda da Padaria Enviada!');
-                        alert('Sua encomenda foi enviada para o forno e atendimento da padaria! Agradecemos a preferência.');
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        const j = await res.json();
+                        if (j && j.name) this.saveMyEncKey(j.name);
+                        try { localStorage.setItem('sc_my_whatsapp', this.encWhatsapp); } catch (e) {}
+                        this.trackWhatsapp = this.encWhatsapp;
+                        this.triggerSuccessNotification('Encomenda enviada: ' + encomendaData.orderCode);
+                        alert('Sua encomenda foi enviada! Código do pedido: ' + encomendaData.orderCode + '\n\nVocê pode acompanhar o andamento em "Acompanhar minhas encomendas".');
                         this.cartPadaria = {};
                         this.encDescription = '';
-                        this.activeTab = 'comanda';
+                        this.openTrack();
                     } catch(e) {
                         alert('Erro ao enviar encomenda. Tente novamente.');
                     }

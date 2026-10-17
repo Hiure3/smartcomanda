@@ -138,7 +138,7 @@
                 <span>Atendimento</span>
                 <span x-show="atdTotalUnread > 0" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] min-w-[20px] h-5 px-1 rounded-full flex items-center justify-center font-bold animate-bounce" x-text="atdTotalUnread"></span>
             </button>
-            <button x-show="hasAccess('kitchen')" @click="activeTab = 'kitchen'; $nextTick(() => renderKitchenCharts())" :class="activeTab === 'kitchen' ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-3.5 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 relative">
+            <button x-show="hasAccess('kitchen')" @click="activeTab = 'kitchen'; $nextTick(() => renderKitchenCharts())" :class="[activeTab === 'kitchen' ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-white', hasLateOrder() ? 'animate-blink-red' : '']" class="px-3.5 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-1.5 relative">
                 <i class="fa-solid fa-fire-burner"></i>
                 <span>Cozinha (KDS)</span>
                 <span x-show="orders.filter(o => o.status !== 'Pronto').length > 0" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold animate-pulse" x-text="orders.filter(o => o.status !== 'Pronto').length"></span>
@@ -884,25 +884,28 @@
                     <table class="w-full text-left text-xs">
                         <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-700">
                             <tr>
+                                <th class="p-3">Pedido</th>
                                 <th class="p-3">Cliente</th>
                                 <th class="p-3">WhatsApp / Telefone</th>
                                 <th class="p-3">Data Agendada</th>
                                 <th class="p-3">Horário</th>
                                 <th class="p-3">Pratos / Descrição do Pedido</th>
                                 <th class="p-3">Data de Envio</th>
+                                <th class="p-3">Status</th>
                                 <th class="p-3 text-right">Ações</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-700/60">
                             <template x-if="encomendasDashboard.length === 0">
                                 <tr>
-                                    <td colspan="6" class="text-center py-6 text-slate-500 italic">
+                                    <td colspan="8" class="text-center py-6 text-slate-500 italic">
                                         Nenhuma encomenda futura registrada até o momento.
                                     </td>
                                 </tr>
                             </template>
                             <template x-for="enc in encomendasDashboard" :key="enc.id || enc.createdAt">
-                                <tr @click="selectedEncomenda = enc" class="hover:bg-slate-700/50 cursor-pointer transition-all text-slate-200">
+                                <tr @click="openEncomenda(enc)" class="hover:bg-slate-700/50 cursor-pointer transition-all text-slate-200">
+                                    <td class="p-3 font-mono font-extrabold text-emerald-400 whitespace-nowrap" x-text="enc.orderCode || '-'"></td>
                                     <td class="p-3 font-bold text-white flex items-center space-x-2">
                                         <i class="fa-solid fa-user-clock text-indigo-400"></i>
                                         <span x-text="enc.client"></span>
@@ -912,6 +915,7 @@
                                     <td class="p-3 text-slate-300" x-text="enc.time || 'A combinar'"></td>
                                     <td class="p-3 text-slate-200 italic max-w-xs truncate" x-text="enc.itemsDescription"></td>
                                     <td class="p-3 text-slate-400 text-[10px]" x-text="enc.createdAt"></td>
+                                    <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase border whitespace-nowrap" :class="encStatusClass(enc.status)" x-text="enc.status || 'Recebida'"></span></td>
                                     <td class="p-3 text-right">
                                         <button @click.stop="deleteEncomenda(enc)" class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/40 p-2 rounded-xl text-xs font-bold transition-all shadow flex items-center justify-center space-x-1 ml-auto" title="Excluir Definitivamente esta Encomenda">
                                             <i class="fa-solid fa-trash-can"></i>
@@ -982,6 +986,16 @@
                             </select>
                         </div>
                         <div class="col-span-2">
+                            <span class="text-slate-400 block mb-0.5">Status da Encomenda (o cliente acompanha pelo celular):</span>
+                            <select x-model="selectedEncomenda.status" @change="encPersist(selectedEncomenda)" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-amber-300 font-bold focus:outline-none focus:border-indigo-500 w-full mt-0.5">
+                                <option value="Recebida">Recebida</option>
+                                <option value="Em produção">Em produção</option>
+                                <option value="Pronta para retirada">Pronta para retirada</option>
+                                <option value="Entregue">Entregue</option>
+                                <option value="Cancelada">Cancelada</option>
+                            </select>
+                        </div>
+                        <div class="col-span-2">
                             <span class="text-slate-400 block mb-0.5">Data de Envio:</span>
                             <strong class="text-slate-400 font-mono" x-text="selectedEncomenda?.createdAt"></strong>
                         </div>
@@ -999,10 +1013,15 @@
                         <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs text-slate-200 max-h-48 overflow-y-auto space-y-2">
                             <template x-if="selectedEncomenda?.itemsList && selectedEncomenda.itemsList.length > 0">
                                 <div class="divide-y divide-slate-800">
-                                    <template x-for="it in selectedEncomenda.itemsList" :key="it.name">
-                                        <div class="py-1.5 flex justify-between items-center">
-                                            <span class="font-medium text-white" x-text="`${it.qty}x ${it.name}`"></span>
+                                    <template x-for="it in selectedEncomenda.itemsList" :key="it.name + '|' + it.price">
+                                        <div class="py-1.5 flex justify-between items-center gap-2">
+                                            <span class="font-medium text-white flex-1" x-text="`${it.qty}x ${it.name}`"></span>
                                             <span class="text-emerald-400 font-bold font-mono" x-text="`R$ ${(it.qty * it.price).toFixed(2)}`"></span>
+                                            <div class="flex items-center space-x-1 shrink-0">
+                                                <button @click="encChangeQty(it, -1)" class="w-6 h-6 bg-slate-800 hover:bg-slate-700 text-white rounded font-bold">-</button>
+                                                <button @click="encChangeQty(it, 1)" class="w-6 h-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-bold">+</button>
+                                                <button @click="encRemoveItem(it)" class="w-6 h-6 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded" title="Remover item"><i class="fa-solid fa-trash-can text-[10px]"></i></button>
+                                            </div>
                                         </div>
                                     </template>
                                 </div>
@@ -1011,6 +1030,27 @@
                                 <p class="text-slate-300 italic whitespace-pre-line" x-text="selectedEncomenda?.itemsDescription || 'Sem detalhes fornecidos'"></p>
                             </template>
                         </div>
+                    </div>
+
+                    <!-- Adicionar itens à encomenda -->
+                    <div class="bg-slate-900 border border-slate-700 rounded-xl p-3 space-y-2 text-xs">
+                        <p class="font-bold text-slate-300 flex items-center space-x-1.5"><i class="fa-solid fa-cart-plus text-emerald-400"></i><span>Adicionar itens à encomenda</span></p>
+                        <div class="flex gap-2">
+                            <select x-model="encAddSel" class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                                <option value="">Escolha um produto...</option>
+                                <template x-for="c in encCatalog()" :key="c.key">
+                                    <option :value="c.key" x-text="c.name + ' - R$ ' + c.price.toFixed(2)"></option>
+                                </template>
+                            </select>
+                            <input type="number" min="1" x-model.number="encAddQty" class="w-14 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white text-center focus:outline-none focus:border-emerald-500">
+                            <button @click="encAddItem()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-bold">Adicionar</button>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" x-model="encCustomName" placeholder="Item avulso (nome)" class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                            <input type="number" min="0" step="0.01" x-model.number="encCustomPrice" placeholder="R$" class="w-20 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                            <button @click="encAddCustom()" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg font-bold">Incluir</button>
+                        </div>
+                        <p class="text-[10px] text-slate-500">As alterações são salvas na hora e o cliente vê o pedido atualizado no celular.</p>
                     </div>
 
                     <!-- Observações -->
@@ -1119,6 +1159,12 @@
                                     <p>Mesa Livre / Disponível</p>
                                 </div>
                             </template>
+
+                            <button @click="openTableHistory(table.number)" class="mt-3 w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center space-x-1.5">
+                                <i class="fa-solid fa-clock-rotate-left text-indigo-400"></i>
+                                <span>Histórico da Mesa</span>
+                                <span class="bg-indigo-500/20 text-indigo-300 px-1.5 rounded-full" x-text="histCount(table.number)"></span>
+                            </button>
                         </div>
                     </template>
                 </div>
@@ -1230,7 +1276,7 @@
                                 <div class="flex items-center space-x-3">
                                     <span class="bg-emerald-500/20 text-emerald-300 font-extrabold text-xs px-2.5 py-1 rounded-md border border-emerald-500/40" x-text="'Mesa ' + fb.table"></span>
                                     <span class="font-extrabold text-white text-base" x-text="fb.client"></span>
-                                    <span class="text-slate-400 text-xs font-semibold" x-text="'• ' + fb.time"></span>
+                                    <span class="text-slate-400 text-xs font-semibold" x-text="'• Recebida em ' + fbDateTime(fb)"></span>
                                 </div>
                                 <div class="flex items-center space-x-3">
                                     <!-- Badge de Atendimento -->
@@ -1361,7 +1407,7 @@
                                 </tr>
                             </template>
                             <template x-for="c in getFilteredClients()" :key="c.id">
-                                <tr @click="selectedEncomenda = enc" class="hover:bg-slate-700/50 cursor-pointer transition-all text-slate-200">
+                                <tr @click="openClientHistory(c)" title="Clique para ver o histórico de consumo" class="hover:bg-slate-700/50 cursor-pointer transition-all text-slate-200">
                                     <td class="p-3 font-bold text-white flex items-center space-x-2">
                                         <i class="fa-solid fa-user text-emerald-400"></i>
                                         <span x-text="c.name"></span>
@@ -1376,7 +1422,7 @@
                                         <span class="bg-indigo-500/20 text-indigo-300 font-bold px-2.5 py-1 rounded-md border border-indigo-500/30" x-text="c.visits + ' Refeições'"></span>
                                     </td>
                                     <td class="p-3 text-right">
-                                        <button @click="viewClientCard(c)" class="text-pink-400 hover:text-pink-300 p-1.5 rounded-lg transition-all mr-1" title="Ver QR Code de Identificação do Cliente"><i class="fa-solid fa-qrcode text-xs"></i></button><button @click="deleteClient(c)" class="text-red-400 hover:text-red-300 p-1.5 rounded-lg transition-all" title="Excluir cadastro">
+                                        <button @click.stop="viewClientCard(c)" class="text-pink-400 hover:text-pink-300 p-1.5 rounded-lg transition-all mr-1" title="Ver QR Code de Identificação do Cliente"><i class="fa-solid fa-qrcode text-xs"></i></button><button @click.stop="deleteClient(c)" class="text-red-400 hover:text-red-300 p-1.5 rounded-lg transition-all" title="Excluir cadastro">
                                             <i class="fa-solid fa-trash-can text-xs"></i>
                                         </button>
                                     </td>
@@ -1669,6 +1715,51 @@
             <div class="pt-4 border-t border-slate-700 flex justify-end space-x-2">
                 <button @click="openModalNovaComanda = false" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-sm font-semibold">Cancelar</button>
                 <button @click="createNewTable()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg">Criar Mesa</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: HISTÓRICO (por mesa ou por cliente) -->
+    <div x-show="showHistoryModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="showHistoryModal = false">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-2xl rounded-2xl p-6 shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-start pb-4 border-b border-slate-700">
+                <div>
+                    <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-clock-rotate-left text-indigo-400"></i>
+                        <span x-text="historyView.title"></span>
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5" x-text="historySummary()"></p>
+                </div>
+                <button @click="showHistoryModal = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="overflow-y-auto space-y-3 py-4 text-xs">
+                <template x-if="historyRecords().length === 0">
+                    <p class="text-center text-slate-500 italic py-8">Nenhum atendimento finalizado registrado ainda. O histórico começa a ser gravado a partir desta versão.</p>
+                </template>
+                <template x-for="r in historyRecords()" :key="r.id">
+                    <div class="bg-slate-900 border border-slate-700 rounded-xl p-3 space-y-2">
+                        <div class="flex justify-between items-start flex-wrap gap-2">
+                            <div>
+                                <p class="text-white font-bold text-sm flex items-center space-x-1.5"><i class="fa-regular fa-calendar-check text-emerald-400"></i><span x-text="'Finalizado em ' + fmtDateTime(r.finalizadoEm)"></span></p>
+                                <p class="text-slate-400 text-[11px]" x-text="'Mesa ' + r.mesa + ' • ' + (r.cliente || 'Cliente') + (r.origem === 'celular' ? ' • finalizado pelo celular do cliente' : '')"></p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-emerald-400 font-extrabold text-sm" x-text="'R$ ' + Number(r.total || 0).toFixed(2)"></p>
+                                <p class="text-indigo-300 text-[11px] font-mono" x-text="'Tempo na mesa: ' + (r.tempo || '--')"></p>
+                            </div>
+                        </div>
+                        <div class="bg-slate-950 border border-slate-800 rounded-lg p-2">
+                            <p class="text-[11px] font-bold text-emerald-400 mb-1"><i class="fa-solid fa-utensils mr-1"></i>Itens consumidos:</p>
+                            <template x-for="(it, ix) in (r.itens || [])" :key="ix">
+                                <div class="flex justify-between py-0.5 border-b border-slate-900 last:border-0">
+                                    <span class="text-slate-200" x-text="it.qty + 'x ' + it.name"></span>
+                                    <span class="text-emerald-400 font-mono" x-text="'R$ ' + (it.qty * it.price).toFixed(2)"></span>
+                                </div>
+                            </template>
+                            <p x-show="!(r.itens && r.itens.length)" class="text-slate-500 italic">Sem itens lançados.</p>
+                        </div>
+                    </div>
+                </template>
             </div>
         </div>
     </div>
@@ -2086,6 +2177,15 @@
                 _restoring: false,
                 _finBusy: false,
                 finalizeToast: '',
+                // --- Histórico de atendimentos finalizados ---
+                historyLog: [],
+                showHistoryModal: false,
+                historyView: { title: '', mode: 'mesa', mesa: null, client: null },
+                // --- Edição de encomendas ---
+                encAddSel: '',
+                encAddQty: 1,
+                encCustomName: '',
+                encCustomPrice: null,
                 currentTurn: 'Todos',
                 openAddMenuItemModal: false,
                 newItemName: '',
@@ -2479,10 +2579,11 @@
                     this.selectedEncomenda = null;
                     alert('Encomenda excluída definitivamente do sistema e do banco de dados!');
                 },
-                saveEncomendaChanges(enc) {
+                async saveEncomendaChanges(enc) {
                     try {
                         localStorage.setItem('smartcomanda_encomendas_v8', JSON.stringify(this.encomendasDashboard));
                     } catch(e) {}
+                    await this.encPersist(enc);
                     alert('Alterações salvas com sucesso!');
                 },
 
@@ -2740,6 +2841,7 @@
                         this.saveStorage();
                     }, 1000);
 
+                    this.loadHistory();
                     this.backupBoot(wasEmpty);
                 },
 
@@ -2828,6 +2930,192 @@
 
                     this.openEditClientModalFlag = false;
                     this.saveStorage();
+                },
+
+                // ===== Cozinha: pedido passou do tempo =====
+                hasLateOrder() {
+                    return (this.orders || []).some(o => (o.items || []).some(i => i.status !== 'Pronto' && (o.elapsedSeconds || 0) >= this.getItemPrepTime(i.name) * 60));
+                },
+
+                // ===== Avaliações: data em que o sistema recebeu =====
+                fbDateTime(fb) {
+                    const d = new Date(fb.receivedAt || fb.id);
+                    if (!fb || isNaN(d.getTime()) || (fb.id || fb.receivedAt) < 1e11) return (fb && fb.time) || '';
+                    return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                },
+
+                // ===== Encomendas: status e edição de itens =====
+                encStatusClass(s) {
+                    return ({
+                        'Recebida': 'bg-amber-500/10 text-amber-300 border-amber-500/30',
+                        'Em produção': 'bg-blue-500/10 text-blue-300 border-blue-500/30',
+                        'Pronta para retirada': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+                        'Entregue': 'bg-slate-700 text-slate-300 border-slate-600',
+                        'Cancelada': 'bg-red-500/10 text-red-300 border-red-500/30'
+                    })[s || 'Recebida'] || 'bg-slate-700 text-slate-300 border-slate-600';
+                },
+                encCatalog() {
+                    const base = [
+                    { id: 101, name: 'Pão Francês Tradicional (kg)', price: 18.90, category: 'Pães & Broas', desc: 'Crocante por fora, macio por dentro.' },
+                    { id: 102, name: 'Pão de Queijo Mineiro (Unidade Grande)', price: 4.50, category: 'Pães & Broas', desc: 'Com queijo canastra legítimo.' },
+                    { id: 103, name: 'Croissant Folhado com Manteiga', price: 9.50, category: 'Pães & Broas', desc: 'Massa folhada artesanal de receita francesa.' },
+                    { id: 104, name: 'Baguete recheada com Presunto e Queijo', price: 16.00, category: 'Pães & Broas', desc: 'Baguete artesanal recheada e assada.' },
+                    { id: 105, name: 'Bolo Caseiro de Fubá com Goiabada', price: 28.00, category: 'Bolos & Confeitaria', desc: 'Bolo inteiro quentinho do forno.' },
+                    { id: 106, name: 'Torta Holandesa Cremosa (Inteira)', price: 75.00, category: 'Bolos & Confeitaria', desc: 'Creme leve com cobertura de chocolate e biscoitos.' },
+                    { id: 107, name: 'Sonho de Creme de Baunilha', price: 6.50, category: 'Bolos & Confeitaria', desc: 'Fofinho e polvilhado com açúcar de confeiteiro.' },
+                    { id: 108, name: 'Carolina Recheada com Doce de Leite (500g)', price: 32.00, category: 'Bolos & Confeitaria', desc: 'Massa choux coberta com chocolate.' },
+                    { id: 109, name: 'Coxinha de Frango com Catupiry (Cento de Salgados)', price: 85.00, category: 'Salgados & Tortas', desc: '100 mini salgados fritos na hora.' },
+                    { id: 110, name: 'Torta Inteira de Frango com Requeijão', price: 68.00, category: 'Salgados & Tortas', desc: 'Massa podre artesanal que derrete na boca.' },
+                    { id: 111, name: 'Empadão de Palmito Especial', price: 62.00, category: 'Salgados & Tortas', desc: 'Recheio cremoso e temperado.' },
+                    { id: 112, name: 'Kit Café da Manhã Família', price: 120.00, category: 'Kits & Festas', desc: 'Pães variados, bolo, frios, geleia e suco de laranja 1L.' },
+                    { id: 113, name: 'Pão de Metro Peito de Peru e Queijo Branco', price: 89.00, category: 'Kits & Festas', desc: 'Serve até 10 pessoas, cortado e decorado.' }
+                ];
+                    const a = base.map(p => ({ key: 'p' + p.id, name: p.name, price: p.price }));
+                    const b = (this.menuProducts || []).map(p => ({ key: 'm' + p.id, name: p.name, price: Number(p.price) || 0 }));
+                    return a.concat(b);
+                },
+                openEncomenda(enc) {
+                    this.encEnsureItems(enc);
+                    if (!enc.status) enc.status = 'Recebida';
+                    this.encAddSel = ''; this.encAddQty = 1; this.encCustomName = ''; this.encCustomPrice = null;
+                    this.selectedEncomenda = enc;
+                },
+                // encomendas antigas só têm texto: converte para lista de itens (guardando a diferença de valor)
+                encEnsureItems(enc) {
+                    if (Array.isArray(enc.itemsList)) return;
+                    const body = String(enc.itemsDescription || '').replace(/\s*\(Obs:[\s\S]*\)\s*$/, '');
+                    const cat = this.encCatalog();
+                    const list = [];
+                    body.split(/,\s*(?=\d+x\s)/).forEach(part => {
+                        const m = part.trim().match(/^(\d+)x\s+(.+)$/);
+                        if (m) {
+                            const nm = m[2].trim();
+                            const f = cat.find(c => c.name === nm);
+                            list.push({ id: f ? f.key : 'x' + list.length, name: nm, qty: parseInt(m[1]), price: f ? f.price : 0 });
+                        }
+                    });
+                    const sum = list.reduce((a, i) => a + i.qty * i.price, 0);
+                    enc.itemsList = list;
+                    enc.extraValue = Math.max(0, Math.round((parseFloat(enc.totalValue || 0) - sum) * 100) / 100);
+                },
+                encRecalc(enc) {
+                    const items = enc.itemsList || [];
+                    const sum = items.reduce((a, i) => a + i.qty * i.price, 0);
+                    enc.totalValue = Math.round((sum + (enc.extraValue || 0)) * 100) / 100;
+                    const obsM = String(enc.itemsDescription || '').match(/\s*\(Obs:[\s\S]*\)\s*$/);
+                    enc.itemsDescription = (items.map(i => `${i.qty}x ${i.name}`).join(', ') + (obsM ? obsM[0] : '')).trim();
+                    enc.updatedAt = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    enc.updatedBy = (this.currentUser && this.currentUser.name) || '';
+                },
+                async encPersist(enc) {
+                    if (!enc) return;
+                    try { localStorage.setItem('smartcomanda_encomendas_v8', JSON.stringify(this.encomendasDashboard)); } catch (e) {}
+                    if (!enc.firebaseKey) return;
+                    const patch = {
+                        itemsList: enc.itemsList || [], itemsDescription: enc.itemsDescription || '',
+                        totalValue: enc.totalValue || 0, extraValue: enc.extraValue || 0,
+                        status: enc.status || 'Recebida', operator: enc.operator || '',
+                        updatedAt: enc.updatedAt || '', updatedBy: enc.updatedBy || ''
+                    };
+                    try { await fetch(`${SC_DB}/encomendas/${enc.firebaseKey}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) }); } catch (e) { console.warn('Falha ao salvar encomenda', e); }
+                },
+                encAddItem() {
+                    const enc = this.selectedEncomenda;
+                    const c = this.encCatalog().find(x => x.key === this.encAddSel);
+                    if (!enc || !c) { alert('Escolha um produto para adicionar.'); return; }
+                    this.encPush(enc, c.key, c.name, c.price, parseInt(this.encAddQty) || 1);
+                    this.encAddSel = ''; this.encAddQty = 1;
+                },
+                encAddCustom() {
+                    const enc = this.selectedEncomenda;
+                    const nm = (this.encCustomName || '').trim();
+                    if (!enc || !nm) { alert('Informe o nome do item avulso.'); return; }
+                    this.encPush(enc, 'c' + Date.now(), nm, parseFloat(this.encCustomPrice) || 0, 1);
+                    this.encCustomName = ''; this.encCustomPrice = null;
+                },
+                encPush(enc, key, name, price, qty) {
+                    this.encEnsureItems(enc);
+                    const ex = enc.itemsList.find(i => i.name === name && Number(i.price) === Number(price));
+                    if (ex) ex.qty += qty; else enc.itemsList.push({ id: key, name: name, qty: qty, price: price });
+                    this.encRecalc(enc); this.encPersist(enc);
+                },
+                encChangeQty(it, d) {
+                    const enc = this.selectedEncomenda; if (!enc) return;
+                    it.qty += d;
+                    if (it.qty <= 0) { this.encRemoveItem(it); return; }
+                    this.encRecalc(enc); this.encPersist(enc);
+                },
+                encRemoveItem(it) {
+                    const enc = this.selectedEncomenda; if (!enc) return;
+                    enc.itemsList = (enc.itemsList || []).filter(x => x !== it);
+                    this.encRecalc(enc); this.encPersist(enc);
+                },
+
+                // ===== Histórico de atendimentos finalizados =====
+                fmtDateTime(ts) {
+                    const d = new Date(ts);
+                    if (!ts || isNaN(d.getTime())) return '--';
+                    return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                },
+                loadHistory() {
+                    try { const s = localStorage.getItem('smartcomanda_history_v8'); if (s) this.historyLog = JSON.parse(s) || []; } catch (e) {}
+                    this.syncHistoryFromCloud();
+                },
+                saveHistoryLocal() { try { localStorage.setItem('smartcomanda_history_v8', JSON.stringify(this.historyLog)); } catch (e) {} },
+                addHistory(rec) {
+                    // id único mesmo se duas contas forem finalizadas no mesmo milissegundo
+                    let id = Date.now();
+                    if (id <= (this._lastHistId || 0)) id = this._lastHistId + 1;
+                    this._lastHistId = id;
+                    rec.id = id;
+                    rec.finalizadoEm = id;
+                    this.historyLog.unshift(rec);
+                    this.saveHistoryLocal();
+                    fetch(`${SC_DB}/historico/${rec.id}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rec) }).catch(() => {});
+                },
+                // junta o que está na nuvem com o que está aqui (recupera o histórico se o navegador foi limpo)
+                async syncHistoryFromCloud() {
+                    try {
+                        const r = await fetch(`${SC_DB}/historico.json`, { cache: 'no-store' });
+                        if (!r.ok) return;
+                        const d = (await r.json()) || {};
+                        const local = new Set(this.historyLog.map(x => x.id));
+                        let added = false;
+                        Object.keys(d).forEach(k => { const x = d[k]; if (x && !local.has(x.id)) { this.historyLog.push(x); added = true; } });
+                        if (added) { this.historyLog.sort((a, b) => b.finalizadoEm - a.finalizadoEm); this.saveHistoryLocal(); }
+                        if (this._restoring) return;
+                        const cloud = new Set(Object.values(d).map(x => x && x.id));
+                        for (const x of this.historyLog) {
+                            if (!cloud.has(x.id)) await fetch(`${SC_DB}/historico/${x.id}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(x) });
+                        }
+                    } catch (e) {}
+                },
+                histCount(mesa) { return this.historyLog.filter(h => h.mesa === mesa).length; },
+                histMatchClient(h, c) {
+                    const d1 = String(h.whatsapp || '').replace(/\D/g, ''), d2 = String(c.whatsapp || '').replace(/\D/g, '');
+                    if (d1 && d2) return d1 === d2;
+                    const n = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+                    return !!n(h.cliente) && n(h.cliente) === n(c.name);
+                },
+                historyRecords() {
+                    const v = this.historyView;
+                    const list = v.mode === 'mesa' ? this.historyLog.filter(h => h.mesa === v.mesa) : this.historyLog.filter(h => this.histMatchClient(h, v.client));
+                    return list.slice().sort((a, b) => b.finalizadoEm - a.finalizadoEm);
+                },
+                historySummary() {
+                    const l = this.historyRecords();
+                    const tot = l.reduce((a, h) => a + Number(h.total || 0), 0);
+                    return l.length + (l.length === 1 ? ' atendimento' : ' atendimentos') + ' • Total consumido: R$ ' + tot.toFixed(2);
+                },
+                openTableHistory(n) {
+                    this.historyView = { title: 'Histórico da Mesa ' + n, mode: 'mesa', mesa: n, client: null };
+                    this.showHistoryModal = true;
+                    this.syncHistoryFromCloud();
+                },
+                openClientHistory(c) {
+                    this.historyView = { title: 'Histórico de Consumo: ' + c.name, mode: 'cliente', mesa: null, client: c };
+                    this.showHistoryModal = true;
+                    this.syncHistoryFromCloud();
                 },
 
                 // ===== Pedidos de finalização vindos do celular =====
@@ -3069,6 +3357,15 @@
                         const fb = snap.firebase || {};
                         await this.restoreList('feedbacks', fb.feedbacks, 'fb_');
                         await this.restoreList('encomendas', fb.encomendas, 'enc_');
+                        try {   // mantém o contador PEDIDO:NN sempre à frente das encomendas restauradas
+                            const arrE = Array.isArray(fb.encomendas) ? fb.encomendas : Object.values(fb.encomendas || {});
+                            const mx = Math.max(0, ...arrE.map(e => (e && e.orderNumber) || 0));
+                            if (mx) {
+                                const g = await fetch(`${SC_DB}/contadores/encomenda.json`, { cache: 'no-store' });
+                                const cur = g.ok ? await g.json() : 0;
+                                if ((typeof cur !== 'number' ? 0 : cur) < mx) await fetch(`${SC_DB}/contadores/encomenda.json`, { method: 'PUT', body: JSON.stringify(mx) });
+                            }
+                        } catch (e) {}
                         location.reload();
                     } catch (e) {
                         this._restoring = false;
@@ -3522,6 +3819,24 @@
                     // Chat de atendimento: arquiva e zera a conversa da mesa (cliente ainda identificado neste ponto)
                     this.atdArchiveAndClear(t.number, t.client);
 
+                    // Histórico: registra este atendimento (quem passou pela mesa e quando foi finalizado)
+                    this.addHistory({
+                        id: Date.now(),
+                        sid: t.sessionId || '',
+                        mesa: t.number,
+                        cliente: t.client || 'Cliente',
+                        whatsapp: t.whatsapp || '',
+                        email: t.email || '',
+                        adultos: t.adults || 1,
+                        criancas: t.kids || 0,
+                        tempo: formattedSatTime,
+                        total: Number(t.total || 0),
+                        itens: JSON.parse(JSON.stringify(t.items || [])),
+                        finalizadoEm: Date.now(),
+                        origem: fromPhone ? 'celular' : 'caixa',
+                        atendente: (this.currentUser && this.currentUser.name) || ''
+                    });
+
                     // 4. ZERAR COMPLETAMENTE AS INFORMAÇÕES DA MESA E O CRONÔMETRO
                     t.status = 'livre';
                     t.client = '';
@@ -3574,6 +3889,7 @@ exportLiveExcel() {
                         'Mesa': f.table,
                         'Cliente': f.client,
                         'Horário': f.time,
+                        'Data de Recebimento': this.fbDateTime(f),
                         'Nota Atendimento': f.service + ' / 5',
                         'Nota Alimento': f.food + ' / 5',
                         'Comentário / Sugestão': f.comment
