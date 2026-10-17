@@ -550,6 +550,7 @@
                 trackSteps: ['Recebida', 'Em produção', 'Pronta', 'Entregue'],
                 sid: '',               // identificador da sessão (comanda) - vem da mesa ou do QR Code
                 urlSid: '',            // sessão do QR/link que abriu esta página
+                tableWa: '',           // WhatsApp (só dígitos) do cliente ativo cadastrado na mesa
                 tableChecked: false,   // já consultou a mesa pelo menos uma vez
                 alreadyRated: false,
                 submittingRating: false,
@@ -771,6 +772,7 @@
                                         this.refreshRatedState();
                                     }
 
+                                    this.tableWa = tableFound.status === 'ocupada' ? String(tableFound.whatsapp || '').replace(/\D/g, '') : '';
                                     if(tableFound.status === 'ocupada') {
                                         this.clientName = tableFound.client || 'Mesa Ocupada';
                                         let totalSec = tableFound.satSeconds || 0;
@@ -1074,6 +1076,16 @@
                 // ===== Acompanhar encomendas =====
                 // Comanda (cliente) ativa na mesa neste momento
                 get hasActiveSession() { return !!this.sid && this.tableOpen && !this.sessionEnded; },
+                // A encomenda é deste cliente? (mesma comanda OU mesmo WhatsApp cadastrado para o cliente ativo da mesa).
+                // Assim, se o cliente sair do app e voltar, o número do pedido dele continua sendo exibido.
+                ownsEncomenda(e, sid) {
+                    if (!e) return false;
+                    if (e.sessionId && e.sessionId === sid) return true;
+                    const mine = this.tableWa, theirs = String(e.whatsappDigits || '').replace(/\D/g, '');
+                    if (mine.length < 8 || theirs.length < 8) return false;
+                    if (/^55?11999999999$|^5511999999999$/.test(mine)) return false;   // número padrão (comanda sem WhatsApp)
+                    return mine.slice(-8) === theirs.slice(-8);
+                },
                 // Chave de armazenamento individual por sessão: um cliente nunca enxerga as encomendas do anterior
                 encStoreKey() { return 'sc_my_enc_' + this.sid; },
                 myEncKeys() {
@@ -1095,6 +1107,7 @@
                     } catch (e) {}
                     this.myEncomendas = [];
                     this.myEncCount = 0;
+                    this.tableWa = '';
                     this.trackWhatsapp = '';
                     this.encWhatsapp = '';
                     this.encDescription = '';
@@ -1137,7 +1150,7 @@
                     for (const k of this.myEncKeys()) {
                         try {
                             const r = await fetch(`${SC_DB}/encomendas/${k}.json`, { cache: 'no-store' });
-                            if (r.ok) { const d = await r.json(); if (d && d.sessionId === sid) found[k] = d; }
+                            if (r.ok) { const d = await r.json(); if (d && this.ownsEncomenda(d, sid)) found[k] = d; }
                         } catch (e) {}
                     }
                     const dg = String(this.trackWhatsapp || '').replace(/\D/g, '');
@@ -1150,7 +1163,7 @@
                             if (r.ok) {
                                 const d = await r.json();
                                 // só entram encomendas feitas NESTA comanda (mesmo WhatsApp de outro cliente/sessão é ignorado)
-                                Object.keys(d || {}).forEach(k => { if (d[k] && d[k].sessionId === sid) found[k] = d[k]; });
+                                Object.keys(d || {}).forEach(k => { if (d[k] && this.ownsEncomenda(d[k], sid)) found[k] = d[k]; });
                             }
                         } catch (e) {}
                     } else if (byNumber !== null) {
@@ -1160,7 +1173,7 @@
                             if (r.ok) {
                                 const d = await r.json();
                                 // o pedido só aparece se foi feito pelo cliente conectado agora nesta mesa
-                                Object.keys(d || {}).forEach(k => { if (d[k] && d[k].sessionId === sid) found[k] = d[k]; });
+                                Object.keys(d || {}).forEach(k => { if (d[k] && this.ownsEncomenda(d[k], sid)) found[k] = d[k]; });
                             }
                         } catch (e) {}
                         Object.keys(found).forEach(k => { if (Number(found[k].orderNumber) !== byNumber) delete found[k]; });
