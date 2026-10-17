@@ -94,14 +94,14 @@
             </div>
 
             <!-- Encerrado -->
-            <template x-if="isFinalized">
-                <div class="p-3 text-center text-[11px] text-slate-400 bg-slate-900 border-t border-slate-700">
-                    Atendimento indisponível: esta mesa não tem uma comanda aberta no momento.
+            <template x-if="chatClosed">
+                <div class="p-3 text-center text-[11px] text-slate-400 bg-slate-900 border-t border-slate-700"
+                     x-text="sessionEnded ? 'Atendimento encerrado: sua comanda foi finalizada. Obrigado pela visita!' : 'Conectando à sua comanda...'">
                 </div>
             </template>
 
             <!-- Atalhos + Input Message -->
-            <div x-show="!isFinalized" class="bg-slate-900 border-t border-slate-700">
+            <div x-show="!chatClosed" class="bg-slate-900 border-t border-slate-700">
                 <p x-show="chatNotice" class="px-3 pt-2 text-[10px] text-amber-400" x-text="chatNotice"></p>
                 <div class="px-3 pt-2.5 flex gap-1.5 overflow-x-auto">
                     <template x-for="chip in chatChips" :key="chip.label">
@@ -168,17 +168,6 @@
 
         <!-- ABA 1: COMANDA DA MESA -->
         <div x-show="activeTab === 'comanda'" class="space-y-4">
-            <!-- BANNER DE COMANDA FINALIZADA -->
-            <template x-if="isFinalized">
-                <div class="bg-emerald-500/20 border-2 border-emerald-500 p-3.5 rounded-xl text-center space-y-1 animate-pulse">
-                    <p class="text-xs font-black text-emerald-300 flex items-center justify-center space-x-1.5">
-                        <i class="fa-solid fa-flag-checkered text-base"></i>
-                        <span>PEDIDO FINALIZADO COM SUCESSO!</span>
-                    </p>
-                    <p class="text-[11px] text-slate-300">Sua comanda foi encerrada pelo estabelecimento. Agradecemos a preferência!</p>
-                </div>
-            </template>
-
             <!-- Info do Cliente e Tempo -->
             <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-700/80 space-y-2 text-xs">
                 <div class="flex justify-between items-center">
@@ -439,6 +428,8 @@
                 notificationText: 'Pedido finalizado com sucesso!',
                 notificationIcon: 'fa-circle-check',
                 isFinalized: false,
+                tableOpen: false,     // comanda da mesa aberta agora (atualiza sozinho, sem recarregar a página)
+                sessionEnded: false,  // a comanda deste cliente já foi finalizada nesta página
                 previousStatus: null,
                 hasNotifiedFinalized: false, // Flag rigorosa para exibir a notificação APENAS UMA VEZ na transição do Windows
                 
@@ -537,7 +528,7 @@
                     setInterval(() => { this.chatNow = Date.now(); }, 2000);
 
                     // Sinal de vida: a loja vê "Acompanhando a comanda agora" enquanto este celular estiver com o app aberto
-                    const ping = () => { if (document.visibilityState === 'visible' && !this.isFinalized) this.patchMeta({ clientPing: Date.now() }); };
+                    const ping = () => { if (document.visibilityState === 'visible' && !this.chatClosed) this.patchMeta({ clientPing: Date.now() }); };
                     ping();
                     setInterval(ping, 8000);
                     document.addEventListener('visibilitychange', () => {
@@ -604,12 +595,10 @@
                                 }
 
                                 if(tableFound) {
-                                    // SÓ EXIBE A MENSAGEM "PEDIDO FINALIZADO COM SUCESSO!" UMA ÚNICA VEZ NA TRANSIÇÃO EXATA QUANDO O SISTEMA WINDOWS FINALIZA A COMANDA!
-                                    if(this.previousStatus === 'ocupada' && tableFound.status === 'livre' && !this.hasNotifiedFinalized) {
-                                        this.hasNotifiedFinalized = true;
-                                        this.isFinalized = true;
-                                        this.triggerSuccessNotification('Pedido finalizado com sucesso!');
+                                    if(this.previousStatus === 'ocupada' && tableFound.status === 'livre') {
+                                        this.sessionEnded = true; // comanda deste cliente foi encerrada (sem notificação)
                                     }
+                                    this.tableOpen = (tableFound.status === 'ocupada');
 
                                     this.previousStatus = tableFound.status;
 
@@ -621,8 +610,6 @@
                                         this.satTime = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
                                         this.total = tableFound.total || 0;
                                         this.items = tableFound.items || [];
-                                    } else if(tableFound.status === 'livre') {
-                                        this.isFinalized = true;
                                     }
                                 }
                             }
@@ -649,11 +636,13 @@
                     const readUpTo = this.chatMeta.clientReadUpTo || 0;
                     return this.chatMessages.filter(m => m.sender !== 'cliente' && !m.pending && (m.timestamp || 0) > readUpTo).length;
                 },
+                get chatClosed() { return this.sessionEnded || !this.tableOpen; },
                 get attendantOnline() { return (this.chatNow - this.attSeen.at) < 25000; },
                 get attendantTyping() { return (this.chatNow - this.attTypingSeen.at) < 5000; },
                 isReadByStaff(msg) { return (msg.timestamp || 0) <= (this.chatMeta.staffReadUpTo || 0); },
 
                 openChat() {
+                    this.fetchTableData();
                     this.showChatModal = true;
                     this.showSuccessNotification = false;
                     this.$nextTick(() => { this.chatMarkRead(); this.chatScrollBottom(true); });
@@ -664,7 +653,7 @@
                     if (force || (box.scrollHeight - box.scrollTop - box.clientHeight) < 120) box.scrollTop = box.scrollHeight;
                 },
                 patchMeta(obj) {
-                    if (this.isFinalized) return;
+                    if (this.chatClosed) return;
                     fetch(`${SC_DB}/chat_meta/mesa_${this.tableNumber}.json`, {
                         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj)
                     }).catch(() => {});
@@ -723,7 +712,7 @@
                     this.sendChatMessage(chip.text, 'chamado');
                 },
                 async sendChatMessage(textOverride, kind) {
-                    if (this.isFinalized) return;
+                    if (this.chatClosed) return;
                     const text = (typeof textOverride === 'string' ? textOverride : this.newMessage).trim();
                     if (!text) return;
                     if (typeof textOverride !== 'string') this.newMessage = '';
